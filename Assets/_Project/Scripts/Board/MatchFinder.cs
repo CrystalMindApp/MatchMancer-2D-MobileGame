@@ -1,12 +1,61 @@
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 
 namespace CrystalMind.MatchMancer
 {
     public class MatchFinder
     {
-        private BoardManager board;
+        #region Variables
+
+        // Cache
+        private readonly BoardManager board;
+
+        #endregion
+
+        #region Properties
+
+        #endregion
+
+        #region Public Methods
+
+        public MatchFinder(BoardManager boardManager)
+        {
+            board = boardManager;
+        }
+
+        public List<Tile> FindAllMatches()
+        {
+            HashSet<Tile> uniqueMatches = new HashSet<Tile>();
+
+            AddMatches(uniqueMatches, FindHorizontalMatches());
+            AddMatches(uniqueMatches, FindVerticalMatches());
+
+            return uniqueMatches.ToList();
+        }
+
+        #endregion
+
+        #region Protected Methods
+
+        #endregion
+
+        #region Private Methods
+
+        private void AddMatches(HashSet<Tile> target, List<Tile> matches)
+        {
+            if (matches == null)
+            {
+                return;
+            }
+
+            foreach (Tile tile in matches)
+            {
+                if (tile != null)
+                {
+                    target.Add(tile);
+                }
+            }
+        }
 
         private List<Tile> FindHorizontalMatches()
         {
@@ -21,34 +70,18 @@ namespace CrystalMind.MatchMancer
                     Tile current = board.GetTile(row, col);
                     Tile previous = board.GetTile(row, col - 1);
 
-                    if (current.Type == previous.Type)
+                    if (IsSameType(current, previous))
                     {
                         matchCount++;
                     }
                     else
                     {
-                        if (matchCount >= 3)
-                        {
-                            Debug.Log($"Horizontal match found at row {row}, count {matchCount}");
-
-                            for (int i = 0; i < matchCount; i++)
-                            {
-                                matches.Add(board.GetTile(row, col - 1 - i));
-                            }
-                        }
-
+                        AddHorizontalMatch(matches, row, col - 1, matchCount);
                         matchCount = 1;
                     }
                 }
 
-                // check end row
-                if (matchCount >= 3)
-                {
-                    for (int i = 0; i < matchCount; i++)
-                    {
-                        matches.Add(board.GetTile(row, board.Cols - 1 - i));
-                    }
-                }
+                AddHorizontalMatch(matches, row, board.Cols - 1, matchCount);
             }
 
             return matches;
@@ -67,66 +100,69 @@ namespace CrystalMind.MatchMancer
                     Tile current = board.GetTile(row, col);
                     Tile previous = board.GetTile(row - 1, col);
 
-                    if (current.Type == previous.Type)
+                    if (IsSameType(current, previous))
                     {
                         matchCount++;
                     }
                     else
                     {
-                        if (matchCount >= 3)
-                        {
-                            Debug.Log($"Vertical match found at col {col}, count {matchCount}");
-
-                            for (int i = 0; i < matchCount; i++)
-                            {
-                                matches.Add(board.GetTile(row - 1 - i, col));
-                            }
-                        }
-
+                        AddVerticalMatch(matches, row - 1, col, matchCount);
                         matchCount = 1;
                     }
                 }
 
-                // check end column
-                if (matchCount >= 3)
-                {
-                    Debug.Log($"Vertical match found at col {col}, count {matchCount}");
-
-                    for (int i = 0; i < matchCount; i++)
-                    {
-                        matches.Add(board.GetTile(board.Rows - 1 - i, col));
-                    }
-                }
+                AddVerticalMatch(matches, board.Rows - 1, col, matchCount);
             }
 
             return matches;
         }
 
-        public MatchFinder(BoardManager board)
+        private void AddHorizontalMatch(List<Tile> matches, int row, int endCol, int matchCount)
         {
-            this.board = board;
+            if (matchCount < 3)
+            {
+                return;
+            }
+
+            for (int i = 0; i < matchCount; i++)
+            {
+                Tile tile = board.GetTile(row, endCol - i);
+
+                if (tile != null)
+                {
+                    matches.Add(tile);
+                }
+            }
         }
 
-        public List<Tile> FindAllMatches()
+        private void AddVerticalMatch(List<Tile> matches, int endRow, int col, int matchCount)
         {
-            HashSet<Tile> uniqueMatches = new HashSet<Tile>();
-
-            foreach (Tile tile in FindHorizontalMatches())
+            if (matchCount < 3)
             {
-                uniqueMatches.Add(tile);
+                return;
             }
 
-            foreach (Tile tile in FindVerticalMatches())
+            for (int i = 0; i < matchCount; i++)
             {
-                uniqueMatches.Add(tile);
-            }
+                Tile tile = board.GetTile(endRow - i, col);
 
-            foreach (Tile tile in uniqueMatches)
-            {
-                Debug.Log($"Matched Tile: row {tile.Row}, col {tile.Col}, type {tile.Type}");
+                if (tile != null)
+                {
+                    matches.Add(tile);
+                }
             }
-
-            return uniqueMatches.ToList();
         }
+
+        private bool IsSameType(Tile firstTile, Tile secondTile)
+        {
+            if (firstTile == null || secondTile == null)
+            {
+                return false;
+            }
+
+            return firstTile.Type == secondTile.Type;
+        }
+
+        #endregion
     }
 }
