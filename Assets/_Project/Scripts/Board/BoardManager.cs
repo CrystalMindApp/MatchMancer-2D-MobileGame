@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CrystalMind.MatchMancer
@@ -24,6 +25,10 @@ namespace CrystalMind.MatchMancer
             var matches = finder.FindAllMatches();
 
             Debug.Log($"Matches found: {matches.Count}");
+
+            ClearTiles(matches);
+            PrintBoard();
+            ValidateBoardAfterClear();
         }
 
         private void GenerateBoard()
@@ -46,8 +51,8 @@ namespace CrystalMind.MatchMancer
                 }
             }
 
-            PrintBoard();
-            ValidateBoardData();    
+            //PrintBoard();
+            //ValidateBoardData();    
         }
 
         private void SpawnTile(int row, int col, Vector2 boardOffset)
@@ -147,6 +152,77 @@ namespace CrystalMind.MatchMancer
             }
 
             Debug.Log("Board validation passed.");
+            return true;
+        }
+
+        public void ClearTiles(List<Tile> tilesToClear)
+        {
+            if (tilesToClear == null || tilesToClear.Count == 0)
+            {
+                Debug.Log("No tiles to clear.");
+                return;
+            }
+
+            foreach (Tile tile in tilesToClear)
+            {
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                int row = tile.Row;
+                int col = tile.Col;
+
+                if (!IsValidCoordinate(row, col))
+                {
+                    Debug.LogWarning($"Invalid tile coordinate: row {row}, col {col}");
+                    continue;
+                }
+
+                if (boardTiles[row, col] != tile)
+                {
+                    Debug.LogWarning($"Tile mismatch at row {row}, col {col}");
+                    continue;
+                }
+
+                boardTiles[row, col] = null;
+                tile.gameObject.SetActive(false);
+
+                Debug.Log($"Cleared tile at row {row}, col {col}, type {tile.Type}");
+            }
+        }
+
+        public bool ValidateBoardAfterClear()
+        {
+            if (boardTiles == null)
+            {
+                Debug.LogError("Board validation failed: boardTiles is null.");
+                return false;
+            }
+
+            int emptyCount = 0;
+
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < cols; col++)
+                {
+                    Tile tile = boardTiles[row, col];
+
+                    if (tile == null)
+                    {
+                        emptyCount++;
+                        continue;
+                    }
+
+                    if (tile.Row != row || tile.Col != col)
+                    {
+                        Debug.LogError($"Board validation failed: Tile coordinate mismatch at [{row}, {col}]");
+                        return false;
+                    }
+                }
+            }
+
+            Debug.Log($"Board after clear validation passed. Empty tiles: {emptyCount}");
             return true;
         }
     }
