@@ -1,0 +1,105 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "E:\\GameDev\\_Unity6Games\\MatchMancer\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|e:\\gamedev\\_unity6games\\matchmancer\\assets\\_project\\scripts\\board\\boardmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\_project\\scripts\\board\\boardmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|e:\\gamedev\\_unity6games\\matchmancer\\assets\\_project\\scripts\\board\\matchfinder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\_project\\scripts\\board\\matchfinder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|e:\\gamedev\\_unity6games\\matchmancer\\assets\\_project\\scripts\\managers\\gamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\_project\\scripts\\managers\\gamemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|e:\\gamedev\\_unity6games\\matchmancer\\assets\\_project\\scripts\\tiles\\tile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\_project\\scripts\\tiles\\tile.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|e:\\gamedev\\_unity6games\\matchmancer\\assets\\_project\\scripts\\tiles\\tiletype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B4CD19DA-EE08-5225-FB19-1D0DFA4113DD}|Assembly-CSharp.csproj|solutionrelative:assets\\_project\\scripts\\tiles\\tiletype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "TileType.cs",
+              "DocumentMoniker": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Tiles\\TileType.cs",
+              "RelativeDocumentMoniker": "Assets\\_Project\\Scripts\\Tiles\\TileType.cs",
+              "ToolTip": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Tiles\\TileType.cs",
+              "RelativeToolTip": "Assets\\_Project\\Scripts\\Tiles\\TileType.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T02:17:14.125Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Tile.cs",
+              "DocumentMoniker": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Tiles\\Tile.cs",
+              "RelativeDocumentMoniker": "Assets\\_Project\\Scripts\\Tiles\\Tile.cs",
+              "ToolTip": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Tiles\\Tile.cs",
+              "RelativeToolTip": "Assets\\_Project\\Scripts\\Tiles\\Tile.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T02:17:14.087Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "GameManager.cs",
+              "DocumentMoniker": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Managers\\GameManager.cs",
+              "RelativeDocumentMoniker": "Assets\\_Project\\Scripts\\Managers\\GameManager.cs",
+              "ToolTip": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Managers\\GameManager.cs",
+              "RelativeToolTip": "Assets\\_Project\\Scripts\\Managers\\GameManager.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T02:17:14.054Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "MatchFinder.cs",
+              "DocumentMoniker": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Board\\MatchFinder.cs",
+              "RelativeDocumentMoniker": "Assets\\_Project\\Scripts\\Board\\MatchFinder.cs",
+              "ToolTip": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Board\\MatchFinder.cs",
+              "RelativeToolTip": "Assets\\_Project\\Scripts\\Board\\MatchFinder.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T02:17:14.015Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "BoardManager.cs",
+              "DocumentMoniker": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Board\\BoardManager.cs",
+              "RelativeDocumentMoniker": "Assets\\_Project\\Scripts\\Board\\BoardManager.cs",
+              "ToolTip": "E:\\GameDev\\_Unity6Games\\MatchMancer\\Assets\\_Project\\Scripts\\Board\\BoardManager.cs",
+              "RelativeToolTip": "Assets\\_Project\\Scripts\\Board\\BoardManager.cs",
+              "ViewState": "AgIAAB4AAAAAAAAAAAAowDsAAAAtAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T02:17:13.96Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
