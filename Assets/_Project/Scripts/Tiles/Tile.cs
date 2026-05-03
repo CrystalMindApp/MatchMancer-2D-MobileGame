@@ -26,6 +26,12 @@ namespace CrystalMind.MatchMancer
             ApplyVisual();
         }
 
+        public void SetCoordinate(int row, int col)
+        {
+            Row = row;
+            Col = col;
+        }
+
         private void ApplyVisual()
         {
             if (spriteRenderer == null)

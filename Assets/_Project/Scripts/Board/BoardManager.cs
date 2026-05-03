@@ -29,6 +29,10 @@ namespace CrystalMind.MatchMancer
             ClearTiles(matches);
             PrintBoard();
             ValidateBoardAfterClear();
+
+            ApplyGravity();
+            PrintBoard();
+            ValidateBoardAfterClear();
         }
 
         private void GenerateBoard()
@@ -88,6 +92,16 @@ namespace CrystalMind.MatchMancer
             int randomIndex = Random.Range(0, typeCount);
 
             return (TileType)randomIndex;
+        }
+
+        private Vector3 GetTileWorldPosition(int row, int col)
+        {
+            Vector2 boardOffset = GetBoardCenterOffset();
+
+            float x = col * tileSpacing + boardOffset.x;
+            float y = -row * tileSpacing + boardOffset.y;
+
+            return new Vector3(x, y, 0f);
         }
 
         public Tile GetTile(int row, int col)
@@ -224,6 +238,41 @@ namespace CrystalMind.MatchMancer
 
             Debug.Log($"Board after clear validation passed. Empty tiles: {emptyCount}");
             return true;
+        }
+
+        public void ApplyGravity()
+        {
+            for (int col = 0; col < cols; col++)
+            {
+                int emptyRow = -1;
+
+                for (int row = rows - 1; row >= 0; row--)
+                {
+                    Tile tile = boardTiles[row, col];
+
+                    if (tile == null)
+                    {
+                        if (emptyRow == -1)
+                        {
+                            emptyRow = row;
+                        }
+                    }
+                    else if (emptyRow != -1)
+                    {
+                        boardTiles[emptyRow, col] = tile;
+                        boardTiles[row, col] = null;
+
+                        tile.SetCoordinate(emptyRow, col);
+                        tile.transform.position = GetTileWorldPosition(emptyRow, col);
+
+                        Debug.Log($"Tile fell from [{row},{col}] to [{emptyRow},{col}]");
+
+                        emptyRow--;
+                    }
+                }
+            }
+
+            Debug.Log("Gravity applied.");
         }
     }
 }
