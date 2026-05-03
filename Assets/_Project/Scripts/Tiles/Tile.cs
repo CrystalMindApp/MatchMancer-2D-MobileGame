@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace CrystalMind.MatchMancer
 {
-    [RequireComponent(typeof(SpriteRenderer))]
     public class Tile : MonoBehaviour
     {
         public int Row { get; private set; }
@@ -22,31 +21,43 @@ namespace CrystalMind.MatchMancer
             Col = col;
             Type = type;
 
-            name = $"Tile_{row}_{col}_{type}";
-            ApplyColor();
+            gameObject.name = $"Tile_{row}_{col}_{type}";
+
+            ApplyVisual();
         }
 
-        private void ApplyColor()
+        private void ApplyVisual()
         {
-            if (spriteRenderer == null) return;
+            if (spriteRenderer == null)
+            {
+                Debug.LogError($"{name}: SpriteRenderer missing.");
+                return;
+            }
 
-            switch (Type)
+            spriteRenderer.color = GetColorByType(Type);
+        }
+
+        private Color GetColorByType(TileType type)
+        {
+            switch (type)
             {
                 case TileType.Red:
-                    spriteRenderer.color = Color.red;
-                    break;
+                    return Color.red;
+
                 case TileType.Blue:
-                    spriteRenderer.color = Color.blue;
-                    break;
+                    return Color.blue;
+
                 case TileType.Green:
-                    spriteRenderer.color = Color.green;
-                    break;
+                    return Color.green;
+
                 case TileType.Yellow:
-                    spriteRenderer.color = Color.yellow;
-                    break;
+                    return Color.yellow;
+
                 case TileType.Purple:
-                    spriteRenderer.color = Color.magenta;
-                    break;
+                    return Color.magenta;
+
+                default:
+                    return Color.white;
             }
         }
     }
