@@ -3,6 +3,88 @@ using System.Linq;
 
 namespace CrystalMind.MatchMancer
 {
+    public class MatchGroup
+    {
+        #region Variables
+
+        // Cache
+        private readonly HashSet<Tile> tiles = new HashSet<Tile>();
+
+        // State
+        private int longestHorizontalLength;
+        private int longestVerticalLength;
+
+        #endregion
+
+        #region Properties
+
+        public IReadOnlyCollection<Tile> Tiles => tiles;
+        public int Count => tiles.Count;
+        public int LongestHorizontalLength => longestHorizontalLength;
+        public int LongestVerticalLength => longestVerticalLength;
+        public bool HasHorizontalMatch => longestHorizontalLength >= 3;
+        public bool HasVerticalMatch => longestVerticalLength >= 3;
+        public bool IsCornerOrCrossShape => HasHorizontalMatch && HasVerticalMatch;
+
+        #endregion
+
+        #region Public Methods
+
+        public void AddTiles(IEnumerable<Tile> newTiles, bool isHorizontalLine)
+        {
+            if (newTiles == null)
+            {
+                return;
+            }
+
+            int lineLength = 0;
+
+            foreach (Tile tile in newTiles)
+            {
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                tiles.Add(tile);
+                lineLength++;
+            }
+
+            if (isHorizontalLine)
+            {
+                longestHorizontalLength = System.Math.Max(longestHorizontalLength, lineLength);
+            }
+            else
+            {
+                longestVerticalLength = System.Math.Max(longestVerticalLength, lineLength);
+            }
+        }
+
+        public bool Overlaps(MatchGroup otherGroup)
+        {
+            if (otherGroup == null)
+            {
+                return false;
+            }
+
+            return tiles.Overlaps(otherGroup.tiles);
+        }
+
+        public void Merge(MatchGroup otherGroup)
+        {
+            if (otherGroup == null)
+            {
+                return;
+            }
+
+            tiles.UnionWith(otherGroup.tiles);
+            longestHorizontalLength = System.Math.Max(longestHorizontalLength, otherGroup.longestHorizontalLength);
+            longestVerticalLength = System.Math.Max(longestVerticalLength, otherGroup.longestVerticalLength);
+        }
+
+        #endregion
+    }
+
     public class MatchFinder
     {
         #region Variables
@@ -26,11 +108,24 @@ namespace CrystalMind.MatchMancer
         public List<Tile> FindAllMatches()
         {
             HashSet<Tile> uniqueMatches = new HashSet<Tile>();
+            List<MatchGroup> groups = FindMatchGroups();
 
-            AddMatches(uniqueMatches, FindHorizontalMatches());
-            AddMatches(uniqueMatches, FindVerticalMatches());
+            foreach (MatchGroup group in groups)
+            {
+                uniqueMatches.UnionWith(group.Tiles);
+            }
 
             return uniqueMatches.ToList();
+        }
+
+        public List<MatchGroup> FindMatchGroups()
+        {
+            List<MatchGroup> groups = new List<MatchGroup>();
+
+            groups.AddRange(FindHorizontalGroups());
+            groups.AddRange(FindVerticalGroups());
+
+            return MergeOverlappingGroups(groups);
         }
 
         #endregion
@@ -41,25 +136,9 @@ namespace CrystalMind.MatchMancer
 
         #region Private Methods
 
-        private void AddMatches(HashSet<Tile> target, List<Tile> matches)
+        private List<MatchGroup> FindHorizontalGroups()
         {
-            if (matches == null)
-            {
-                return;
-            }
-
-            foreach (Tile tile in matches)
-            {
-                if (tile != null)
-                {
-                    target.Add(tile);
-                }
-            }
-        }
-
-        private List<Tile> FindHorizontalMatches()
-        {
-            List<Tile> matches = new List<Tile>();
+            List<MatchGroup> groups = new List<MatchGroup>();
 
             for (int row = 0; row < board.Rows; row++)
             {
@@ -76,20 +155,20 @@ namespace CrystalMind.MatchMancer
                     }
                     else
                     {
-                        AddHorizontalMatch(matches, row, col - 1, matchCount);
+                        AddHorizontalGroup(groups, row, col - 1, matchCount);
                         matchCount = 1;
                     }
                 }
 
-                AddHorizontalMatch(matches, row, board.Cols - 1, matchCount);
+                AddHorizontalGroup(groups, row, board.Cols - 1, matchCount);
             }
 
-            return matches;
+            return groups;
         }
 
-        private List<Tile> FindVerticalMatches()
+        private List<MatchGroup> FindVerticalGroups()
         {
-            List<Tile> matches = new List<Tile>();
+            List<MatchGroup> groups = new List<MatchGroup>();
 
             for (int col = 0; col < board.Cols; col++)
             {
@@ -106,23 +185,25 @@ namespace CrystalMind.MatchMancer
                     }
                     else
                     {
-                        AddVerticalMatch(matches, row - 1, col, matchCount);
+                        AddVerticalGroup(groups, row - 1, col, matchCount);
                         matchCount = 1;
                     }
                 }
 
-                AddVerticalMatch(matches, board.Rows - 1, col, matchCount);
+                AddVerticalGroup(groups, board.Rows - 1, col, matchCount);
             }
 
-            return matches;
+            return groups;
         }
 
-        private void AddHorizontalMatch(List<Tile> matches, int row, int endCol, int matchCount)
+        private void AddHorizontalGroup(List<MatchGroup> groups, int row, int endCol, int matchCount)
         {
             if (matchCount < 3)
             {
                 return;
             }
+
+            List<Tile> tiles = new List<Tile>();
 
             for (int i = 0; i < matchCount; i++)
             {
@@ -130,17 +211,23 @@ namespace CrystalMind.MatchMancer
 
                 if (tile != null)
                 {
-                    matches.Add(tile);
+                    tiles.Add(tile);
                 }
             }
+
+            MatchGroup group = new MatchGroup();
+            group.AddTiles(tiles, true);
+            groups.Add(group);
         }
 
-        private void AddVerticalMatch(List<Tile> matches, int endRow, int col, int matchCount)
+        private void AddVerticalGroup(List<MatchGroup> groups, int endRow, int col, int matchCount)
         {
             if (matchCount < 3)
             {
                 return;
             }
+
+            List<Tile> tiles = new List<Tile>();
 
             for (int i = 0; i < matchCount; i++)
             {
@@ -148,8 +235,54 @@ namespace CrystalMind.MatchMancer
 
                 if (tile != null)
                 {
-                    matches.Add(tile);
+                    tiles.Add(tile);
                 }
+            }
+
+            MatchGroup group = new MatchGroup();
+            group.AddTiles(tiles, false);
+            groups.Add(group);
+        }
+
+        private List<MatchGroup> MergeOverlappingGroups(List<MatchGroup> groups)
+        {
+            List<MatchGroup> mergedGroups = new List<MatchGroup>();
+
+            foreach (MatchGroup group in groups)
+            {
+                MatchGroup targetGroup = mergedGroups.FirstOrDefault(existingGroup => existingGroup.Overlaps(group));
+
+                if (targetGroup == null)
+                {
+                    mergedGroups.Add(group);
+                    continue;
+                }
+
+                targetGroup.Merge(group);
+                MergeRemainingOverlaps(mergedGroups, targetGroup);
+            }
+
+            return mergedGroups;
+        }
+
+        private void MergeRemainingOverlaps(List<MatchGroup> groups, MatchGroup targetGroup)
+        {
+            for (int index = groups.Count - 1; index >= 0; index--)
+            {
+                MatchGroup currentGroup = groups[index];
+
+                if (currentGroup == targetGroup)
+                {
+                    continue;
+                }
+
+                if (!targetGroup.Overlaps(currentGroup))
+                {
+                    continue;
+                }
+
+                targetGroup.Merge(currentGroup);
+                groups.RemoveAt(index);
             }
         }
 
