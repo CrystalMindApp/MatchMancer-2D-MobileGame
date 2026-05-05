@@ -33,6 +33,7 @@ namespace CrystalMind.MatchMancer
 
         // State
         private bool isResolving;
+        private int lastResolveClearedTileCount;
 
         #endregion
 
@@ -268,11 +269,13 @@ namespace CrystalMind.MatchMancer
             recentSwapSecondTile = null;
             isResolving = false;
 
-            gameManager?.EvaluateGameResult();
+            gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
         }
 
         private IEnumerator ResolveBoardRoutine(bool countClearedTiles)
         {
+            lastResolveClearedTileCount = 0;
+
             for (int loopCount = 0; loopCount < maxResolveLoops; loopCount++)
             {
                 List<MatchGroup> matchGroups = matchFinder.FindMatchGroups();
@@ -289,6 +292,7 @@ namespace CrystalMind.MatchMancer
 
                 if (countClearedTiles)
                 {
+                    lastResolveClearedTileCount += clearedCount;
                     gameManager?.OnTilesCleared(clearedCount);
                 }
 

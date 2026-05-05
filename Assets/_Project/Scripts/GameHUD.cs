@@ -11,6 +11,8 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private GameManager gameManager;
     [SerializeField] private TMP_Text movesText;
     [SerializeField] private TMP_Text clearedText;
+    [SerializeField] private TMP_Text playerHpText;
+    [SerializeField] private TMP_Text enemyHpText;
     [SerializeField] private TMP_Text stateText;
     [SerializeField] private Button restartButton;
 
@@ -20,12 +22,18 @@ public class GameHUD : MonoBehaviour
 
     private void Awake()
     {
-        restartButton.onClick.AddListener(OnRestartClicked);
+        if (restartButton != null)
+        {
+            restartButton.onClick.AddListener(OnRestartClicked);
+        }
     }
 
     private void OnDestroy()
     {
-        restartButton.onClick.RemoveListener(OnRestartClicked);
+        if (restartButton != null)
+        {
+            restartButton.onClick.RemoveListener(OnRestartClicked);
+        }
     }
 
     private void Update()
@@ -39,14 +47,32 @@ public class GameHUD : MonoBehaviour
 
     private void Refresh()
     {
-        movesText.text = $"Moves: {gameManager.CurrentMoves} / {gameManager.MaxMoves}";
-        clearedText.text = $"Cleared: {gameManager.ClearedTiles} / {gameManager.TargetClearedTiles}";
-        stateText.text = $"State: {gameManager.CurrentState}";
+        if (gameManager == null)
+        {
+            return;
+        }
+
+        SetText(movesText, $"Moves: {gameManager.CurrentMoves} / {gameManager.MaxMoves}");
+        SetText(clearedText, $"Cleared: {gameManager.ClearedTiles} / {gameManager.TargetClearedTiles}");
+        SetText(playerHpText, $"Player HP: {gameManager.PlayerCurrentHp} / {gameManager.PlayerMaxHp}");
+        SetText(enemyHpText, $"Enemy HP: {gameManager.EnemyCurrentHp} / {gameManager.EnemyMaxHp}");
+        SetText(stateText, $"State: {gameManager.CurrentState}");
     }
 
     private void OnRestartClicked()
     {
-        gameManager.RestartGame();
+        if (gameManager != null)
+        {
+            gameManager.RestartGame();
+        }
+    }
+
+    private void SetText(TMP_Text text, string value)
+    {
+        if (text != null)
+        {
+            text.text = value;
+        }
     }
 
     #endregion
