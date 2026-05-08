@@ -18,8 +18,12 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Range(1, 30)] private int maxResolveLoops = 10;
         [SerializeField, Range(0f, 1f)] private float resolveStepDelay = 0.3f;
 
+        [Header("Generation Settings")]
+        [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
+
         [Header("References")]
         [SerializeField] private Tile tilePrefab;
+        [SerializeField] private Transform boardRoot;
         [SerializeField] private Camera inputCamera;
         [SerializeField] private GameManager gameManager;
 
@@ -33,6 +37,7 @@ namespace CrystalMind.MatchMancer
 
         // State
         private bool isResolving;
+        private bool isInputBlocked;
         private int lastResolveClearedTileCount;
 
         #endregion
@@ -42,7 +47,7 @@ namespace CrystalMind.MatchMancer
         public int Rows => rows;
         public int Cols => cols;
         public bool IsResolving => isResolving;
-        public bool CanReceiveInput => !isResolving && (gameManager == null || gameManager.IsPlaying);
+        public bool CanReceiveInput => !isResolving && !isInputBlocked && (gameManager == null || gameManager.IsPlaying);
 
         #endregion
 
@@ -57,13 +62,16 @@ namespace CrystalMind.MatchMancer
         {
             GenerateBoard();
             ValidateBoardData();
-
-            StartCoroutine(InitialResolveRoutine());
         }
 
         private void Update()
         {
             HandleInput();
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            DrawBoardGizmo();
         }
 
         #endregion
@@ -155,6 +163,72 @@ namespace CrystalMind.MatchMancer
             return true;
         }
 
+        public bool TryActivateColorClearSkill(TileType targetType)
+        {
+            if (isResolving || (gameManager != null && !gameManager.IsPlaying))
+            {
+                return false;
+            }
+
+            if (!HasTileOfType(targetType))
+            {
+                return false;
+            }
+
+            StartCoroutine(ColorClearSkillRoutine(targetType));
+            return true;
+        }
+
+        public bool HasTileOfType(TileType targetType)
+        {
+            return GetActiveTiles()
+                .Any(tile => tile != null && tile.Type == targetType);
+        }
+
+        public void SetInputBlocked(bool blocked)
+        {
+            isInputBlocked = blocked;
+
+            if (blocked)
+            {
+                ClearSelection();
+            }
+        }
+
+        public bool TryCreateRandomBomb()
+        {
+            List<Tile> normalTiles = GetActiveTiles()
+                .Where(tile => tile != null && !tile.IsSpecial)
+                .ToList();
+
+            if (normalTiles.Count == 0)
+            {
+                return false;
+            }
+
+            Tile targetTile = normalTiles[Random.Range(0, normalTiles.Count)];
+            targetTile.SetSpecialType(SpecialTileType.Bomb);
+            Debug.Log($"BoardManager: Passive created Bomb at [{targetTile.Row}, {targetTile.Col}].");
+            return true;
+        }
+
+        public bool TryRemoveRandomSpecialTile()
+        {
+            List<Tile> specialTiles = GetActiveTiles()
+                .Where(tile => tile != null && tile.IsSpecial)
+                .ToList();
+
+            if (specialTiles.Count == 0)
+            {
+                return false;
+            }
+
+            Tile targetTile = specialTiles[Random.Range(0, specialTiles.Count)];
+            targetTile.SetSpecialType(SpecialTileType.None);
+            Debug.Log($"BoardManager: Enemy disruption removed special tile at [{targetTile.Row}, {targetTile.Col}].");
+            return true;
+        }
+
         #endregion
 
         #region Protected Methods
@@ -212,22 +286,156 @@ namespace CrystalMind.MatchMancer
 
             boardTiles = new Tile[rows, cols];
 
+            for (int attempt = 0; attempt < maxInitialBoardGenerationAttempts; attempt++)
+            {
+                ClearActiveBoardTiles();
+                boardTiles = new Tile[rows, cols];
+                FillInitialBoardWithoutMatches();
+
+                if (HasAnyValidMove())
+                {
+                    return;
+                }
+            }
+
+            Debug.LogWarning($"BoardManager: Failed to generate a starting board with a valid move after {maxInitialBoardGenerationAttempts} attempts. Keeping latest board.");
+        }
+
+        private void FillInitialBoardWithoutMatches()
+        {
             for (int row = 0; row < rows; row++)
             {
                 for (int col = 0; col < cols; col++)
                 {
-                    TileType randomType = GetRandomTileType();
-                    Tile tile = GetTileFromPool(row, col, randomType);
+                    TileType tileType = GetRandomInitialTileType(row, col);
+                    Tile tile = GetTileFromPool(row, col, tileType);
                     boardTiles[row, col] = tile;
                 }
             }
         }
 
-        private IEnumerator InitialResolveRoutine()
+        private TileType GetRandomInitialTileType(int row, int col)
         {
-            isResolving = true;
-            yield return StartCoroutine(ResolveBoardRoutine(false));
-            isResolving = false;
+            List<TileType> availableTypes = new List<TileType>();
+
+            foreach (TileType tileType in System.Enum.GetValues(typeof(TileType)))
+            {
+                if (WouldCreateInitialMatch(row, col, tileType))
+                {
+                    continue;
+                }
+
+                availableTypes.Add(tileType);
+            }
+
+            if (availableTypes.Count == 0)
+            {
+                return GetRandomTileType();
+            }
+
+            return availableTypes[Random.Range(0, availableTypes.Count)];
+        }
+
+        private bool WouldCreateInitialMatch(int row, int col, TileType tileType)
+        {
+            bool createsHorizontalMatch = col >= 2 &&
+                boardTiles[row, col - 1] != null &&
+                boardTiles[row, col - 2] != null &&
+                boardTiles[row, col - 1].Type == tileType &&
+                boardTiles[row, col - 2].Type == tileType;
+
+            bool createsVerticalMatch = row >= 2 &&
+                boardTiles[row - 1, col] != null &&
+                boardTiles[row - 2, col] != null &&
+                boardTiles[row - 1, col].Type == tileType &&
+                boardTiles[row - 2, col].Type == tileType;
+
+            return createsHorizontalMatch || createsVerticalMatch;
+        }
+
+        private bool HasAnyValidMove()
+        {
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < cols; col++)
+                {
+                    if (WouldSwapCreateMatch(row, col, row, col + 1) ||
+                        WouldSwapCreateMatch(row, col, row + 1, col))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool WouldSwapCreateMatch(int firstRow, int firstCol, int secondRow, int secondCol)
+        {
+            if (!IsValidCoordinate(firstRow, firstCol) || !IsValidCoordinate(secondRow, secondCol))
+            {
+                return false;
+            }
+
+            Tile firstTile = boardTiles[firstRow, firstCol];
+            Tile secondTile = boardTiles[secondRow, secondCol];
+
+            if (firstTile == null || secondTile == null || firstTile.Type == secondTile.Type)
+            {
+                return false;
+            }
+
+            TileType firstType = firstTile.Type;
+            TileType secondType = secondTile.Type;
+
+            return WouldTileHaveMatchAt(firstRow, firstCol, secondType, secondRow, secondCol) ||
+                WouldTileHaveMatchAt(secondRow, secondCol, firstType, firstRow, firstCol);
+        }
+
+        private bool WouldTileHaveMatchAt(int row, int col, TileType tileType, int swappedRow, int swappedCol)
+        {
+            int horizontalCount = 1 +
+                CountVirtualMatches(row, col, 0, -1, tileType, swappedRow, swappedCol) +
+                CountVirtualMatches(row, col, 0, 1, tileType, swappedRow, swappedCol);
+
+            if (horizontalCount >= 3)
+            {
+                return true;
+            }
+
+            int verticalCount = 1 +
+                CountVirtualMatches(row, col, -1, 0, tileType, swappedRow, swappedCol) +
+                CountVirtualMatches(row, col, 1, 0, tileType, swappedRow, swappedCol);
+
+            return verticalCount >= 3;
+        }
+
+        private int CountVirtualMatches(int row, int col, int rowDirection, int colDirection, TileType tileType, int swappedRow, int swappedCol)
+        {
+            int count = 0;
+            int currentRow = row + rowDirection;
+            int currentCol = col + colDirection;
+
+            while (IsValidCoordinate(currentRow, currentCol))
+            {
+                if (currentRow == swappedRow && currentCol == swappedCol)
+                {
+                    break;
+                }
+
+                Tile tile = boardTiles[currentRow, currentCol];
+
+                if (tile == null || tile.Type != tileType)
+                {
+                    break;
+                }
+
+                count++;
+                currentRow += rowDirection;
+                currentCol += colDirection;
+            }
+
+            return count;
         }
 
         private IEnumerator RestartBoardRoutine()
@@ -236,8 +444,8 @@ namespace CrystalMind.MatchMancer
             ClearSelection();
             GenerateBoard();
             ValidateBoardData();
-            yield return StartCoroutine(ResolveBoardRoutine(false));
             isResolving = false;
+            yield break;
         }
 
         private IEnumerator TrySwapRoutine(Tile firstTile, Tile secondTile)
@@ -272,9 +480,12 @@ namespace CrystalMind.MatchMancer
             gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
         }
 
-        private IEnumerator ResolveBoardRoutine(bool countClearedTiles)
+        private IEnumerator ResolveBoardRoutine(bool countClearedTiles, bool resetClearedCount = true, int comboOffset = 0)
         {
-            lastResolveClearedTileCount = 0;
+            if (resetClearedCount)
+            {
+                lastResolveClearedTileCount = 0;
+            }
 
             for (int loopCount = 0; loopCount < maxResolveLoops; loopCount++)
             {
@@ -286,14 +497,16 @@ namespace CrystalMind.MatchMancer
                     yield break;
                 }
 
-                int clearedCount = countClearedTiles
+                ClearStepResult clearResult = countClearedTiles
                     ? ProcessMatchGroups(matchGroups)
-                    : ClearTiles(GetTilesFromMatchGroups(matchGroups));
+                    : ClearTilesAndGetResult(GetTilesFromMatchGroups(matchGroups));
 
                 if (countClearedTiles)
                 {
-                    lastResolveClearedTileCount += clearedCount;
-                    gameManager?.OnTilesCleared(clearedCount);
+                    int comboCount = comboOffset + loopCount + 1;
+                    lastResolveClearedTileCount += clearResult.ClearedCount;
+                    gameManager?.OnTilesCleared(clearResult.ClearedCount);
+                    gameManager?.OnTileColorsCleared(clearResult.ColorCounts, comboCount);
                 }
 
                 yield return new WaitForSeconds(resolveStepDelay);
@@ -307,6 +520,34 @@ namespace CrystalMind.MatchMancer
 
             Debug.LogWarning($"BoardManager: Resolve loop stopped by max limit ({maxResolveLoops}).");
             ValidateBoardData();
+        }
+
+        private IEnumerator ColorClearSkillRoutine(TileType targetType)
+        {
+            isResolving = true;
+            ClearSelection();
+
+            List<Tile> tilesToClear = GetActiveTiles()
+                .Where(tile => tile != null && tile.Type == targetType)
+                .ToList();
+
+            ClearStepResult clearResult = ClearTilesAndGetResult(tilesToClear);
+            lastResolveClearedTileCount = clearResult.ClearedCount;
+            gameManager?.OnTilesCleared(clearResult.ClearedCount);
+            gameManager?.OnTileColorsCleared(clearResult.ColorCounts, 1);
+
+            yield return new WaitForSeconds(resolveStepDelay);
+
+            ApplyGravity();
+            yield return new WaitForSeconds(resolveStepDelay);
+
+            RefillBoard();
+            yield return new WaitForSeconds(resolveStepDelay);
+
+            yield return StartCoroutine(ResolveBoardRoutine(true, false, 1));
+
+            isResolving = false;
+            gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
         }
 
         private void TrySwapSelectedTile(Tile targetTile)
@@ -338,8 +579,8 @@ namespace CrystalMind.MatchMancer
             firstTile.SetCoordinate(secondRow, secondCol);
             secondTile.SetCoordinate(firstRow, firstCol);
 
-            firstTile.transform.position = GetTileWorldPosition(secondRow, secondCol);
-            secondTile.transform.position = GetTileWorldPosition(firstRow, firstCol);
+            firstTile.transform.localPosition = GetTileLocalPosition(secondRow, secondCol);
+            secondTile.transform.localPosition = GetTileLocalPosition(firstRow, firstCol);
         }
 
         private void SelectTile(Tile tile)
@@ -373,7 +614,7 @@ namespace CrystalMind.MatchMancer
             return rowDistance + colDistance == 1;
         }
 
-        private int ProcessMatchGroups(List<MatchGroup> matchGroups)
+        private ClearStepResult ProcessMatchGroups(List<MatchGroup> matchGroups)
         {
             HashSet<Tile> tilesToClear = new HashSet<Tile>();
             HashSet<Tile> activatedSpecialTiles = new HashSet<Tile>();
@@ -411,7 +652,7 @@ namespace CrystalMind.MatchMancer
                 tilesToClear.Remove(specialTile);
             }
 
-            return ClearTiles(new List<Tile>(tilesToClear));
+            return ClearTilesAndGetResult(new List<Tile>(tilesToClear));
         }
 
         private List<Tile> GetTilesFromMatchGroups(List<MatchGroup> matchGroups)
@@ -612,12 +853,17 @@ namespace CrystalMind.MatchMancer
 
         private int ClearTiles(List<Tile> tilesToClear)
         {
+            return ClearTilesAndGetResult(tilesToClear).ClearedCount;
+        }
+
+        private ClearStepResult ClearTilesAndGetResult(List<Tile> tilesToClear)
+        {
             if (tilesToClear == null || tilesToClear.Count == 0)
             {
-                return 0;
+                return new ClearStepResult();
             }
 
-            int clearedCount = 0;
+            ClearStepResult result = new ClearStepResult();
 
             foreach (Tile tile in tilesToClear)
             {
@@ -640,11 +886,11 @@ namespace CrystalMind.MatchMancer
                 }
 
                 boardTiles[row, col] = null;
+                result.Add(tile.Type);
                 ReleaseTileToPool(tile);
-                clearedCount++;
             }
 
-            return clearedCount;
+            return result;
         }
 
         private void ClearActiveBoardTiles()
@@ -700,7 +946,7 @@ namespace CrystalMind.MatchMancer
                     boardTiles[row, col] = null;
 
                     tile.SetCoordinate(emptyRow, col);
-                    tile.transform.position = GetTileWorldPosition(emptyRow, col);
+                    tile.transform.localPosition = GetTileLocalPosition(emptyRow, col);
 
                     emptyRow--;
                 }
@@ -732,13 +978,15 @@ namespace CrystalMind.MatchMancer
             if (tilePool.Count > 0)
             {
                 tile = tilePool.Pop();
-                tile.transform.SetParent(transform);
-                tile.transform.position = GetTileWorldPosition(row, col);
+                tile.transform.SetParent(GetTileParent(), false);
+                tile.transform.localPosition = GetTileLocalPosition(row, col);
                 tile.gameObject.SetActive(true);
             }
             else
             {
-                tile = Instantiate(tilePrefab, GetTileWorldPosition(row, col), Quaternion.identity, transform);
+                tile = Instantiate(tilePrefab, GetTileParent());
+                tile.transform.localPosition = GetTileLocalPosition(row, col);
+                tile.transform.localRotation = Quaternion.identity;
                 tile.SetBoardManager(this);
             }
 
@@ -761,7 +1009,7 @@ namespace CrystalMind.MatchMancer
             return (TileType)randomIndex;
         }
 
-        private Vector3 GetTileWorldPosition(int row, int col)
+        private Vector3 GetTileLocalPosition(int row, int col)
         {
             Vector2 boardOffset = GetBoardCenterOffset();
 
@@ -771,12 +1019,81 @@ namespace CrystalMind.MatchMancer
             return new Vector3(x, y, 0f);
         }
 
+        private Transform GetTileParent()
+        {
+            return boardRoot != null ? boardRoot : transform;
+        }
+
+        private void DrawBoardGizmo()
+        {
+            Transform origin = GetTileParent();
+            Matrix4x4 previousMatrix = Gizmos.matrix;
+            Color previousColor = Gizmos.color;
+
+            Gizmos.matrix = origin.localToWorldMatrix;
+            Gizmos.color = Color.yellow;
+
+            Vector3 size = new Vector3(cols * tileSpacing, rows * tileSpacing, 0f);
+            Gizmos.DrawWireCube(Vector3.zero, size);
+
+            Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
+        }
+
         private Vector2 GetBoardCenterOffset()
         {
             float boardWidth = (cols - 1) * tileSpacing;
             float boardHeight = (rows - 1) * tileSpacing;
 
             return new Vector2(-boardWidth / 2f, boardHeight / 2f);
+        }
+
+        private List<Tile> GetActiveTiles()
+        {
+            List<Tile> tiles = new List<Tile>();
+
+            if (boardTiles == null)
+            {
+                return tiles;
+            }
+
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < cols; col++)
+                {
+                    Tile tile = boardTiles[row, col];
+
+                    if (tile != null)
+                    {
+                        tiles.Add(tile);
+                    }
+                }
+            }
+
+            return tiles;
+        }
+
+        private struct ClearStepResult
+        {
+            public int ClearedCount { get; private set; }
+            public Dictionary<TileType, int> ColorCounts { get; private set; }
+
+            public void Add(TileType tileType)
+            {
+                if (ColorCounts == null)
+                {
+                    ColorCounts = new Dictionary<TileType, int>();
+                }
+
+                ClearedCount++;
+
+                if (!ColorCounts.ContainsKey(tileType))
+                {
+                    ColorCounts[tileType] = 0;
+                }
+
+                ColorCounts[tileType]++;
+            }
         }
 
         #endregion

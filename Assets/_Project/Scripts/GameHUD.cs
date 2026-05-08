@@ -9,11 +9,15 @@ public class GameHUD : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private GameManager gameManager;
-    [SerializeField] private TMP_Text movesText;
-    [SerializeField] private TMP_Text clearedText;
     [SerializeField] private TMP_Text playerHpText;
     [SerializeField] private TMP_Text enemyHpText;
+    [SerializeField] private TMP_Text speedText;
+    [SerializeField] private TMP_Text passiveStackText;
+    [SerializeField] private TMP_Text playerSkillText;
+    [SerializeField] private TMP_Text enemySkillText;
     [SerializeField] private TMP_Text stateText;
+    [SerializeField] private Image activeSkillBlockerImage;
+    [SerializeField] private Button activeSkillButton;
     [SerializeField] private Button restartButton;
 
     #endregion
@@ -43,6 +47,30 @@ public class GameHUD : MonoBehaviour
 
     #endregion
 
+    #region Public Methods
+
+    public void ShowPlayerSkillText(string message)
+    {
+        SetText(playerSkillText, message);
+    }
+
+    public void ClearPlayerSkillText()
+    {
+        SetText(playerSkillText, string.Empty);
+    }
+
+    public void ShowEnemySkillText(string message)
+    {
+        SetText(enemySkillText, message);
+    }
+
+    public void ClearEnemySkillText()
+    {
+        SetText(enemySkillText, string.Empty);
+    }
+
+    #endregion
+
     #region Private Methods
 
     private void Refresh()
@@ -52,11 +80,28 @@ public class GameHUD : MonoBehaviour
             return;
         }
 
-        SetText(movesText, $"Moves: {gameManager.CurrentMoves} / {gameManager.MaxMoves}");
-        SetText(clearedText, $"Cleared: {gameManager.ClearedTiles} / {gameManager.TargetClearedTiles}");
         SetText(playerHpText, $"Player HP: {gameManager.PlayerCurrentHp} / {gameManager.PlayerMaxHp}");
         SetText(enemyHpText, $"Enemy HP: {gameManager.EnemyCurrentHp} / {gameManager.EnemyMaxHp}");
-        SetText(stateText, $"State: {gameManager.CurrentState}");
+        SetText(speedText, gameManager.SpeedInfoText);
+        SetText(passiveStackText, $"Passive: {gameManager.PurplePassiveStack}");
+        SetText(stateText, gameManager.TurnStatusText);
+        RefreshActiveSkillBlocker();
+    }
+
+    private void RefreshActiveSkillBlocker()
+    {
+        float maxGauge = Mathf.Max(1, gameManager.MaxSkillGauge);
+        float skillPercent = Mathf.Clamp01(gameManager.CurrentSkillGauge / maxGauge);
+
+        if (activeSkillBlockerImage != null)
+        {
+            activeSkillBlockerImage.fillAmount = 1f - skillPercent;
+        }
+
+        if (activeSkillButton != null)
+        {
+            activeSkillButton.interactable = gameManager.CanUseActiveSkillNow;
+        }
     }
 
     private void OnRestartClicked()

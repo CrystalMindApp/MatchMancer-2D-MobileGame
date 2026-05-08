@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CrystalMind.MatchMancer
@@ -14,46 +16,57 @@ namespace CrystalMind.MatchMancer
     {
         #region Variables
 
-        [Header("Move Settings")]
-        [SerializeField, Range(1, 99)] private int maxMoves = 20;
+        [Header("Turn Settings")]
+        [SerializeField, Min(0f)] private float actorActionDelay = 1f;
+        [SerializeField, Min(0)] private int enemySkillCooldownTurns = 2;
 
-        [Header("Win Settings")]
-        [SerializeField, Range(1, 999)] private int targetClearedTiles = 30;
+        [Header("Actor References")]
+        [SerializeField] private PlayerActor playerActor;
+        [SerializeField] private EnemyActor enemyActor;
 
-        [Header("Combat Settings")]
-        [SerializeField] private CombatConfig combatConfig;
-        [SerializeField] private bool enableCombatDebugLogs = true;
-        [SerializeField, Min(1)] private int playerMaxHp = 100;
-        [SerializeField] private int playerCurrentHp;
-        [SerializeField, Min(1)] private int enemyMaxHp = 100;
-        [SerializeField] private int enemyCurrentHp;
-        [SerializeField, Min(0)] private int enemyAttackDamage = 10;
-        [SerializeField, Min(0)] private int baseDamagePerTile = 2;
+        [Header("Curse Settings")]
+        [SerializeField, Range(0f, 1f)] private float defaultCurseMissChance = 0.25f;
+        [SerializeField, Min(1)] private int defaultCurseDuration = 2;
 
         [Header("References")]
         [SerializeField] private BoardManager boardManager;
+        [SerializeField] private GameHUD gameHUD;
 
-        // Cache
-        private int currentMoves;
-        private int clearedTiles;
+        [Header("Debug")]
+        [SerializeField] private bool enableCombatDebugLogs = true;
 
         // State
         private GameState currentState;
+        private float pendingCritChance;
+        private bool isTurnResolving;
+        private bool isActiveSkillResolving;
+        private string turnStatusText = "Player Turn";
+        private int enemySkillTurnsRemaining;
 
         #endregion
 
         #region Properties
 
-        public int MaxMoves => maxMoves;
-        public int CurrentMoves => currentMoves;
-        public int ClearedTiles => clearedTiles;
-        public int TargetClearedTiles => targetClearedTiles;
-        public int PlayerMaxHp => GetPlayerMaxHp();
-        public int PlayerCurrentHp => Mathf.Max(0, playerCurrentHp);
-        public int EnemyMaxHp => GetEnemyMaxHp();
-        public int EnemyCurrentHp => Mathf.Max(0, enemyCurrentHp);
+        public int PlayerMaxHp => playerActor != null ? playerActor.MaxHp : 0;
+        public int PlayerCurrentHp => playerActor != null ? playerActor.CurrentHp : 0;
+        public int EnemyMaxHp => enemyActor != null ? enemyActor.MaxHp : 0;
+        public int EnemyCurrentHp => enemyActor != null ? enemyActor.CurrentHp : 0;
+        public int CurrentSkillGauge => playerActor != null ? playerActor.CurrentSkillGauge : 0;
+        public int MaxSkillGauge => playerActor != null ? playerActor.MaxSkillGauge : 0;
+        public int PurplePassiveStack => playerActor != null ? playerActor.PurplePassiveStack : 0;
         public GameState CurrentState => currentState;
         public bool IsPlaying => currentState == GameState.Playing;
+        public bool IsActiveSkillReady => playerActor != null && playerActor.HasEnoughGauge(playerActor.ActiveSkill);
+        public bool CanUseActiveSkillNow => IsPlaying &&
+            IsActiveSkillReady &&
+            !isTurnResolving &&
+            !isActiveSkillResolving &&
+            boardManager != null &&
+            !boardManager.IsResolving;
+        public string TurnStatusText => turnStatusText;
+        public string SpeedInfoText => $"P: {(playerActor != null ? playerActor.CurrentTurnSpeed : 0)}  E: {(enemyActor != null ? enemyActor.BaseSpeed : 0)}";
+        public int PassiveStackThreshold => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.StackThreshold : 0;
+        public string EnemySkillCooldownText => enemySkillTurnsRemaining <= 0 ? "Enemy Skill: Ready" : $"Enemy Skill: {enemySkillTurnsRemaining}";
 
         #endregion
 
@@ -83,13 +96,32 @@ namespace CrystalMind.MatchMancer
 
         public void StartGame()
         {
+            if (!HasRequiredActorReferences())
+            {
+                SetState(GameState.Start);
+                return;
+            }
+
             ResetGameData();
+            ResetActorVisuals();
             SetState(GameState.Playing);
         }
 
         public void RestartGame()
         {
+            StopAllCoroutines();
+
+            if (!HasRequiredActorReferences())
+            {
+                SetState(GameState.Start);
+                return;
+            }
+
             ResetGameData();
+            ResetActorVisuals();
+            SetBoardInputBlocked(false);
+            gameHUD?.ClearPlayerSkillText();
+            gameHUD?.ClearEnemySkillText();
 
             if (boardManager != null)
             {
@@ -97,7 +129,7 @@ namespace CrystalMind.MatchMancer
             }
             else
             {
-                Debug.LogWarning("GameManager: BoardManager reference is missing.");
+                LogSystem("GameManager: BoardManager reference is missing.");
             }
 
             SetState(GameState.Playing);
@@ -110,57 +142,127 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            currentMoves = Mathf.Max(0, currentMoves - 1);
-            Debug.Log($"Move used. Remaining moves: {currentMoves}");
+            playerActor?.BeginPlayerAction();
+            SetTurnStatus("Player Turn");
+            LogSystem("Player action started.");
         }
 
         public void OnTilesCleared(int amount)
         {
-            if (!IsPlaying)
+            if (!IsPlaying || amount <= 0)
             {
                 return;
             }
 
-            if (amount <= 0)
+            LogSystem($"Tiles cleared: {amount}");
+        }
+
+        public void OnTileColorsCleared(IReadOnlyDictionary<TileType, int> colorCounts, int comboCount)
+        {
+            if (!IsPlaying || colorCounts == null || playerActor == null)
             {
                 return;
             }
 
-            clearedTiles += amount;
-            Debug.Log($"Tiles cleared: {clearedTiles}/{targetClearedTiles}");
+            int safeComboCount = Mathf.Max(1, comboCount);
+
+            foreach (KeyValuePair<TileType, int> colorCount in colorCounts)
+            {
+                ApplyTileColorEffect(colorCount.Key, colorCount.Value, safeComboCount);
+            }
         }
 
         public void OnPlayerMoveResolved(int clearedTileCount)
         {
-            if (!IsPlaying)
+            if (!IsPlaying || !HasRequiredActorReferences())
             {
                 return;
             }
 
-            LogCombat($"Cleared tile count this move: {clearedTileCount}");
-            ApplyPlayerDamage(clearedTileCount);
-
-            if (enemyCurrentHp <= 0)
+            if (isTurnResolving)
             {
-                SetState(GameState.Win);
-                LogCombat("Game Result: WIN - Enemy defeated.");
+                LogSystem("Turn resolve ignored because another turn is already resolving.");
                 return;
             }
 
-            EnemyAttack();
+            StartCoroutine(PlayerTurnResolvedRoutine(clearedTileCount));
+        }
 
-            if (playerCurrentHp <= 0)
+        public void TryUseActiveSkill()
+        {
+            ActiveSkillData activeSkill = playerActor != null ? playerActor.ActiveSkill : null;
+            TileType targetType = activeSkill != null ? activeSkill.TargetTileColor : TileType.Red;
+
+            if (!CanUseActiveSkill(activeSkill, targetType))
             {
-                SetState(GameState.Lose);
-                LogCombat("Game Result: LOSE - Player defeated.");
                 return;
             }
 
-            if (currentMoves <= 0)
+            StartCoroutine(ActiveSkillRoutine(activeSkill));
+        }
+
+        public bool TryActivateActiveSkill(TileType targetType)
+        {
+            ActiveSkillData activeSkill = playerActor != null ? playerActor.ActiveSkill : null;
+
+            if (!CanUseActiveSkill(activeSkill, targetType))
             {
-                SetState(GameState.Lose);
-                LogCombat("Game Result: LOSE - No moves remaining.");
+                return false;
             }
+
+            StartCoroutine(ActiveSkillRoutine(activeSkill, targetType));
+            return true;
+        }
+
+        public bool TryActivateRedSkill()
+        {
+            return TryActivateActiveSkill(TileType.Red);
+        }
+
+        public bool TryActivateGreenSkill()
+        {
+            return TryActivateActiveSkill(TileType.Green);
+        }
+
+        public bool TryActivateBlueSkill()
+        {
+            return TryActivateActiveSkill(TileType.Blue);
+        }
+
+        public bool TryActivateYellowSkill()
+        {
+            return TryActivateActiveSkill(TileType.Yellow);
+        }
+
+        public bool TryActivatePurpleSkill()
+        {
+            return TryActivateActiveSkill(TileType.Purple);
+        }
+
+        public void ApplyCurseToPlayer()
+        {
+            ApplyCurseToActor(true, defaultCurseMissChance, defaultCurseDuration);
+        }
+
+        public void ApplyCurseToEnemy()
+        {
+            ApplyCurseToActor(false, defaultCurseMissChance, defaultCurseDuration);
+        }
+
+        public void ApplyCurseToActor(bool affectsPlayer, float missChance, int duration)
+        {
+            float safeMissChance = Mathf.Clamp01(missChance);
+            int safeDuration = Mathf.Max(1, duration);
+
+            if (affectsPlayer)
+            {
+                playerActor?.ApplyCurse(safeMissChance, safeDuration);
+                LogCurse($"Player is cursed for {safeDuration} turn(s).");
+                return;
+            }
+
+            enemyActor?.ApplyCurse(safeMissChance, safeDuration);
+            LogCurse($"Enemy is cursed for {safeDuration} turn(s).");
         }
 
         public void EvaluateGameResult()
@@ -170,91 +272,606 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            if (enemyCurrentHp <= 0)
+            if (enemyActor != null && enemyActor.CurrentHp <= 0)
             {
                 SetState(GameState.Win);
-                LogCombat("Game Result: WIN - Enemy defeated.");
+                enemyActor.HideVisual();
+                LogSystem("Game Result: WIN - Enemy defeated.");
                 return;
             }
 
-            if (playerCurrentHp <= 0)
+            if (playerActor != null && playerActor.CurrentHp <= 0)
             {
                 SetState(GameState.Lose);
-                LogCombat("Game Result: LOSE - Player defeated.");
+                playerActor.HideVisual();
+                LogSystem("Game Result: LOSE - Player defeated.");
                 return;
             }
 
-            if (currentMoves <= 0 && enemyCurrentHp > 0)
-            {
-                SetState(GameState.Lose);
-                LogCombat("Game Result: LOSE - No moves remaining.");
-            }
         }
-
-        #endregion
-
-        #region Protected Methods
 
         #endregion
 
         #region Private Methods
 
+        private IEnumerator ActiveSkillRoutine(ActiveSkillData activeSkill, TileType? overrideTargetType = null)
+        {
+            isActiveSkillResolving = true;
+            SetBoardInputBlocked(true);
+
+            TileType targetType = overrideTargetType ?? activeSkill.TargetTileColor;
+            string skillName = activeSkill.SkillName;
+
+            LogSkill($"Active Skill: {skillName} ({targetType})");
+            gameHUD?.ShowPlayerSkillText(skillName);
+            yield return new WaitForSeconds(activeSkill.DelayBeforeApply);
+            gameHUD?.ClearPlayerSkillText();
+
+            playerActor.SpendSkillGauge(activeSkill);
+
+            if (activeSkill.ConsumesTurn)
+            {
+                OnValidMoveUsed();
+            }
+
+            playerActor.PlaySkillVisual();
+
+            bool activated = activeSkill.SkillEffectType == ActiveSkillEffectType.ClearTileColor &&
+                boardManager != null &&
+                boardManager.TryActivateColorClearSkill(targetType);
+
+            if (!activated)
+            {
+                LogSkillWarning($"Active Skill failed: no valid {targetType} tiles to clear.");
+                isActiveSkillResolving = false;
+                SetBoardInputBlocked(false);
+            }
+        }
+
+        private IEnumerator PlayerTurnResolvedRoutine(int clearedTileCount)
+        {
+            isTurnResolving = true;
+            SetBoardInputBlocked(true);
+
+            LogSystem($"Cleared tile count this turn: {clearedTileCount}");
+            ResolvePlayerPassive(PassiveSkillTiming.ImmediateBoardEffect);
+
+            bool playerActsFirst = ShouldPlayerActFirst();
+            LogTurnPriority(playerActsFirst);
+
+            if (playerActsFirst)
+            {
+                SetTurnStatus("Player Acts First");
+                ExecutePlayerAttack(clearedTileCount);
+                yield return new WaitForSeconds(actorActionDelay);
+
+                if (enemyActor != null && enemyActor.CurrentHp <= 0)
+                {
+                    SetState(GameState.Win);
+                    enemyActor.HideVisual();
+                    LogSystem("Game Result: WIN - Enemy defeated.");
+                    FinishTurnResolve();
+                    yield break;
+                }
+
+                yield return StartCoroutine(EnemyActionRoutine());
+                yield return new WaitForSeconds(actorActionDelay);
+            }
+            else
+            {
+                SetTurnStatus("Enemy Acts First");
+                yield return StartCoroutine(EnemyActionRoutine());
+                yield return new WaitForSeconds(actorActionDelay);
+
+                if (playerActor != null && playerActor.CurrentHp <= 0)
+                {
+                    SetState(GameState.Lose);
+                    playerActor.HideVisual();
+                    LogSystem("Game Result: LOSE - Player defeated.");
+                    FinishTurnResolve();
+                    yield break;
+                }
+
+                ExecutePlayerAttack(clearedTileCount);
+                yield return new WaitForSeconds(actorActionDelay);
+            }
+
+            if (enemyActor != null && enemyActor.CurrentHp <= 0)
+            {
+                SetState(GameState.Win);
+                enemyActor.HideVisual();
+                LogSystem("Game Result: WIN - Enemy defeated.");
+                FinishTurnResolve();
+                yield break;
+            }
+
+            if (playerActor != null && playerActor.CurrentHp <= 0)
+            {
+                SetState(GameState.Lose);
+                playerActor.HideVisual();
+                LogSystem("Game Result: LOSE - Player defeated.");
+                FinishTurnResolve();
+                yield break;
+            }
+
+            TickCurseDurations();
+
+            FinishTurnResolve();
+        }
+
+        private IEnumerator EnemyActionRoutine()
+        {
+            string actionName = enemyActor != null ? enemyActor.EnemySkillAnnouncementText : "Enemy Turn";
+            SetTurnStatus("Enemy Turn");
+            gameHUD?.ShowEnemySkillText(actionName);
+            LogEnemy($"Enemy Action: {actionName}");
+            yield return new WaitForSeconds(enemyActor != null ? enemyActor.EnemyActionDelay : 0f);
+            gameHUD?.ClearEnemySkillText();
+
+            bool enemyUsedSkill = EnemyAttack();
+
+            if (playerActor != null && playerActor.CurrentHp <= 0)
+            {
+                yield break;
+            }
+
+            enemyUsedSkill |= TryEnemySelfHeal();
+            enemyUsedSkill |= TryEnemyDisruption();
+
+            if (enemyUsedSkill)
+            {
+                yield return new WaitForSeconds(actorActionDelay);
+            }
+        }
+
+        private void FinishTurnResolve()
+        {
+            isTurnResolving = false;
+            isActiveSkillResolving = false;
+            pendingCritChance = 0f;
+            playerActor?.ResetTurnSpeedBonus();
+            SetBoardInputBlocked(false);
+            gameHUD?.ClearPlayerSkillText();
+            gameHUD?.ClearEnemySkillText();
+            turnStatusText = "Player Turn";
+        }
+
+        private bool CanUseActiveSkill(ActiveSkillData activeSkill, TileType targetType)
+        {
+            if (!IsPlaying)
+            {
+                LogSkillWarning("Active Skill unavailable: game is not playing.");
+                return false;
+            }
+
+            if (activeSkill == null)
+            {
+                LogSkillWarning("Active Skill unavailable: no ActiveSkillData assigned.");
+                return false;
+            }
+
+            if (isTurnResolving || isActiveSkillResolving || boardManager == null || boardManager.IsResolving)
+            {
+                LogSkillWarning("Active Skill unavailable: board or turn is resolving.");
+                return false;
+            }
+
+            if (playerActor == null || !playerActor.HasEnoughGauge(activeSkill))
+            {
+                int requiredGauge = playerActor != null ? playerActor.GetRequiredSkillGauge(activeSkill) : 0;
+                LogSkillWarning($"Active Skill unavailable: gauge {CurrentSkillGauge}/{requiredGauge}.");
+                return false;
+            }
+
+            if (activeSkill.SkillEffectType == ActiveSkillEffectType.ClearTileColor &&
+                boardManager != null &&
+                !boardManager.HasTileOfType(targetType))
+            {
+                LogSkillWarning($"Active Skill unavailable: no {targetType} tiles on board.");
+                return false;
+            }
+
+            return true;
+        }
+
         private void ResetGameData()
         {
-            currentMoves = maxMoves;
-            clearedTiles = 0;
-            playerCurrentHp = GetPlayerMaxHp();
-            enemyCurrentHp = GetEnemyMaxHp();
+            playerActor?.InitializeRuntimeState();
+            enemyActor?.InitializeRuntimeState();
+            pendingCritChance = 0f;
+            isTurnResolving = false;
+            isActiveSkillResolving = false;
+            turnStatusText = "Player Turn";
+            enemySkillTurnsRemaining = 0;
+        }
+
+        private void ApplyTileColorEffect(TileType tileType, int tileCount, int comboCount)
+        {
+            if (tileCount <= 0)
+            {
+                return;
+            }
+
+            switch (tileType)
+            {
+                case TileType.Red:
+                    AddCritChance(tileCount, comboCount);
+                    break;
+
+                case TileType.Green:
+                    HealPlayer(tileCount, comboCount);
+                    break;
+
+                case TileType.Blue:
+                    AddSkillGauge(tileCount, comboCount);
+                    break;
+
+                case TileType.Yellow:
+                    AddYellowSpeedBonus(tileCount, comboCount);
+                    break;
+
+                case TileType.Purple:
+                    AddPurplePassiveStack(tileCount, comboCount);
+                    break;
+            }
+        }
+
+        private void AddCritChance(int tileCount, int comboCount)
+        {
+            float addedChance = tileCount * playerActor.RedCritChancePerTile * comboCount;
+            pendingCritChance = Mathf.Clamp01(pendingCritChance + addedChance);
+            LogPlayer($"Red effect: crit chance this turn is {pendingCritChance:P0}.");
+        }
+
+        private void HealPlayer(int tileCount, int comboCount)
+        {
+            int healAmount = tileCount * playerActor.GreenHealPerTile * comboCount;
+            playerActor.Heal(healAmount);
+            LogPlayer($"Green effect: healed Player for {healAmount}. Player HP: {playerActor.CurrentHp}");
+        }
+
+        private void AddSkillGauge(int tileCount, int comboCount)
+        {
+            int gaugeGain = tileCount * playerActor.BaseGaugeGain * comboCount;
+            playerActor.AddSkillGauge(gaugeGain);
+            LogSkill($"Blue effect: gained {gaugeGain} skill gauge. Gauge: {playerActor.CurrentSkillGauge}/{playerActor.MaxSkillGauge}");
+        }
+
+        private void AddYellowSpeedBonus(int tileCount, int comboCount)
+        {
+            int speedGain = tileCount * playerActor.SpeedGainPerYellowTile * comboCount;
+            playerActor.AddTurnSpeedBonus(speedGain);
+            LogSpeed($"Yellow effect: gained {speedGain} turn speed. Player speed: {playerActor.CurrentTurnSpeed}");
+        }
+
+        private void AddPurplePassiveStack(int tileCount, int comboCount)
+        {
+            PassiveSkillData passiveSkill = playerActor.PassiveSkill;
+
+            if (passiveSkill == null)
+            {
+                return;
+            }
+
+            int chargeAmount = tileCount * comboCount;
+            playerActor.AddPassiveCharge(chargeAmount);
+            LogPassive($"Purple effect: passive stack {playerActor.PurplePassiveStack}/{passiveSkill.StackThreshold}. Ready: {playerActor.PassiveReady}");
+        }
+
+        private void ResolvePlayerPassive(PassiveSkillTiming timing)
+        {
+            if (playerActor == null || !playerActor.CanExecutePassive(timing))
+            {
+                return;
+            }
+
+            PassiveSkillData passiveSkill = playerActor.PassiveSkill;
+            bool executed = ExecutePlayerPassiveEffect(passiveSkill);
+
+            if (!executed)
+            {
+                return;
+            }
+
+            playerActor.MarkPassiveExecuted();
+            playerActor.PlaySkillVisual();
+            LogPassive($"Passive Skill: {passiveSkill.PassiveName} executed at {passiveSkill.Timing}.");
+        }
+
+        private bool ExecutePlayerPassiveEffect(PassiveSkillData passiveSkill)
+        {
+            if (passiveSkill == null)
+            {
+                return false;
+            }
+
+            switch (passiveSkill.EffectType)
+            {
+                case PassiveSkillEffectType.CreateRandomBomb:
+                    if (boardManager == null)
+                    {
+                        return false;
+                    }
+
+                    bool createdBomb = boardManager.TryCreateRandomBomb();
+                    LogPassive(createdBomb
+                        ? "Purple passive: created one Bomb special tile."
+                        : "Purple passive: no valid normal tile found for Bomb creation.");
+                    return createdBomb;
+            }
+
+            return false;
         }
 
         private void ApplyPlayerDamage(int clearedTileCount)
         {
-            int damage = clearedTileCount * GetBaseDamagePerTile();
-            enemyCurrentHp = Mathf.Max(0, enemyCurrentHp - damage);
+            int damage = CalculatePlayerDamage(clearedTileCount);
+            playerActor.PlayAttackVisual();
+            enemyActor.TakeDamage(damage);
 
-            LogCombat($"Player deals {damage} damage. Enemy HP: {enemyCurrentHp}");
-        }
-
-        private void EnemyAttack()
-        {
-            int damage = GetEnemyAttackDamage();
-            playerCurrentHp = Mathf.Max(0, playerCurrentHp - damage);
-
-            LogCombat($"Enemy attacks for {damage}. Player HP: {playerCurrentHp}");
-        }
-
-        private int GetPlayerMaxHp()
-        {
-            return combatConfig != null ? combatConfig.PlayerMaxHp : playerMaxHp;
-        }
-
-        private int GetEnemyMaxHp()
-        {
-            return combatConfig != null ? combatConfig.EnemyMaxHp : enemyMaxHp;
-        }
-
-        private int GetEnemyAttackDamage()
-        {
-            return combatConfig != null ? combatConfig.EnemyAttackDamage : enemyAttackDamage;
-        }
-
-        private int GetBaseDamagePerTile()
-        {
-            return combatConfig != null ? combatConfig.BaseDamagePerTile : baseDamagePerTile;
-        }
-
-        private void LogCombat(string message)
-        {
-            if (enableCombatDebugLogs)
+            if (damage > 0)
             {
-                Debug.Log(message);
+                enemyActor.PlayGetHitVisual();
             }
+
+            pendingCritChance = 0f;
+
+            LogEnemy($"Player deals {damage} damage. Enemy HP: {enemyActor.CurrentHp}");
+        }
+
+        private void ExecutePlayerAttack(int clearedTileCount)
+        {
+            ResolvePlayerPassive(PassiveSkillTiming.BeforeAttack);
+            ApplyPlayerDamage(clearedTileCount);
+            ResolvePlayerPassive(PassiveSkillTiming.AfterAttack);
+        }
+
+        private int CalculatePlayerDamage(int clearedTileCount)
+        {
+            float damage = clearedTileCount * playerActor.BaseDamagePerTile * playerActor.AttackMultiplier;
+            bool isCritical = Random.value < pendingCritChance;
+
+            if (playerActor.IsAttackMissed())
+            {
+                LogCurse("Player attack missed due to Curse.");
+                return 0;
+            }
+
+            if (isCritical)
+            {
+                damage *= playerActor.RedCritDamageMultiplier;
+                LogPlayer("Red effect: critical hit!");
+            }
+
+            return Mathf.Max(0, Mathf.RoundToInt(damage));
+        }
+
+        private bool EnemyAttack()
+        {
+            int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
+            enemyActor.PlayAttackVisual();
+            bool usedSkill = false;
+
+            if (damage <= 0)
+            {
+                LogCurse("Enemy attack missed due to Curse.");
+            }
+            else if (Random.value < enemyActor.EnemyCritChance)
+            {
+                damage = Mathf.RoundToInt(damage * enemyActor.EnemyCritMultiplier);
+                LogEnemy("Enemy critical hit!");
+            }
+
+            playerActor.TakeDamage(damage);
+
+            if (damage > 0)
+            {
+                playerActor.PlayGetHitVisual();
+            }
+
+            LogEnemy($"Enemy attacks for {damage}. Player HP: {playerActor.CurrentHp}");
+
+            if (damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
+            {
+                enemyActor.PlaySkillVisual();
+                StartEnemySkillCooldown();
+                ApplyCurseToPlayer();
+                usedSkill = true;
+            }
+
+            return usedSkill;
+        }
+
+        private bool TryEnemySelfHeal()
+        {
+            if (Random.value > enemyActor.EnemySelfHealChance)
+            {
+                return false;
+            }
+
+            int healAmount = enemyActor.EnemySelfHealAmount;
+
+            if (healAmount <= 0)
+            {
+                return false;
+            }
+
+            enemyActor.Heal(healAmount);
+            enemyActor.PlaySkillVisual();
+            StartEnemySkillCooldown();
+            LogEnemy($"Enemy heals for {healAmount}. Enemy HP: {enemyActor.CurrentHp}");
+            return true;
+        }
+
+        private bool TryEnemyDisruption()
+        {
+            if (boardManager == null || Random.value > enemyActor.EnemySpecialDisruptChance)
+            {
+                return false;
+            }
+
+            bool disrupted = boardManager.TryRemoveRandomSpecialTile();
+            if (disrupted)
+            {
+                enemyActor.PlaySkillVisual();
+                StartEnemySkillCooldown();
+            }
+
+            LogEnemy(disrupted
+                ? "Enemy disruption: removed one special tile."
+                : "Enemy disruption: no special tile available.");
+            return disrupted;
+        }
+
+        private void TickCurseDurations()
+        {
+            playerActor?.TickCurseDuration();
+            enemyActor?.TickCurseDuration();
+            enemySkillTurnsRemaining = Mathf.Max(0, enemySkillTurnsRemaining - 1);
+        }
+
+        private void ResetActorVisuals()
+        {
+            playerActor?.ResetVisual();
+            enemyActor?.ResetVisual();
+        }
+
+        private void StartEnemySkillCooldown()
+        {
+            enemySkillTurnsRemaining = enemySkillCooldownTurns;
+        }
+
+        private bool ShouldPlayerActFirst()
+        {
+            if (isActiveSkillResolving)
+            {
+                return true;
+            }
+
+            return playerActor.CurrentTurnSpeed >= enemyActor.BaseSpeed;
+        }
+
+        private void LogTurnPriority(bool playerActsFirst)
+        {
+            string firstActor = playerActsFirst ? "Player" : "Enemy";
+
+            if (isActiveSkillResolving)
+            {
+                LogSpeed($"Turn priority: Active Skill used. Player acts first. Player Speed: {playerActor.CurrentTurnSpeed}, Enemy Speed: {enemyActor.BaseSpeed}, Yellow Bonus: {playerActor.CurrentTurnSpeedBonus}");
+                return;
+            }
+
+            LogSpeed($"Turn priority: {firstActor} acts first. Player Speed: {playerActor.CurrentTurnSpeed}, Enemy Speed: {enemyActor.BaseSpeed}, Yellow Bonus: {playerActor.CurrentTurnSpeedBonus}");
+        }
+
+        private void SetTurnStatus(string status)
+        {
+            turnStatusText = status;
+            LogSystem(status);
+        }
+
+        private void SetBoardInputBlocked(bool blocked)
+        {
+            if (boardManager != null)
+            {
+                boardManager.SetInputBlocked(blocked);
+            }
+        }
+
+        private bool HasRequiredActorReferences()
+        {
+            bool hasReferences = playerActor != null &&
+                enemyActor != null &&
+                playerActor.CharacterData != null &&
+                playerActor.CombatProfile != null &&
+                enemyActor.CharacterData != null &&
+                enemyActor.CombatProfile != null;
+
+            if (!hasReferences)
+            {
+                LogSystem("GameManager requires PlayerActor and EnemyActor with assigned CharacterData and combat profiles.");
+            }
+
+            return hasReferences;
+        }
+
+        private void LogPlayer(string message)
+        {
+            LogCombat(message, "green");
+        }
+
+        private void LogEnemy(string message)
+        {
+            LogCombat(message, "red");
+        }
+
+        private void LogSkill(string message)
+        {
+            LogCombat(message, "cyan");
+        }
+
+        private void LogSkillWarning(string message)
+        {
+            LogCombat(message, "cyan", true);
+        }
+
+        private void LogPassive(string message)
+        {
+            LogCombat(message, "magenta");
+        }
+
+        private void LogCurse(string message)
+        {
+            LogCombat(message, "orange");
+        }
+
+        private void LogSpeed(string message)
+        {
+            LogCombat(message, "yellow");
+        }
+
+        private void LogSystem(string message)
+        {
+            LogCombat(message, "gray");
+        }
+
+        private void LogCombat(string message, string color, bool isWarning = false)
+        {
+            if (!enableCombatDebugLogs)
+            {
+                return;
+            }
+
+            string richMessage = $"<color={color}>{message}</color>";
+
+            if (isWarning)
+            {
+                Debug.LogWarning(richMessage);
+                return;
+            }
+
+            Debug.Log(richMessage);
         }
 
         private void SetState(GameState newState)
         {
             currentState = newState;
-            Debug.Log($"Game State: {currentState}");
+            switch (currentState)
+            {
+                case GameState.Playing:
+                    turnStatusText = "Player Turn";
+                    break;
+
+                case GameState.Win:
+                    turnStatusText = "Player Wins";
+                    break;
+
+                case GameState.Lose:
+                    turnStatusText = "Player Loses";
+                    break;
+            }
+
+            LogSystem($"Game State: {currentState}");
         }
 
         #endregion

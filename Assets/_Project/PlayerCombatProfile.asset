@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 319de72fa5a2f254296900509c8ee29e, type: 3}
+  m_Name: PlayerCombatProfile
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.PlayerCombatProfile
+  baseDamagePerTile: 2
+  redCritChancePerTile: 0.03
+  redCritDamageMultiplier: 1.5
+  greenHealPerTile: 2
+  speedGainPerYellowTile: 3
+  maxSkillGauge: 100
+  baseGaugeGain: 10
+  activeSkill: {fileID: 11400000, guid: 9f177520340c575449db45630753c838, type: 2}
+  passiveSkill: {fileID: 11400000, guid: 09ca786c77ed3a044a15f724a59e559a, type: 2}
