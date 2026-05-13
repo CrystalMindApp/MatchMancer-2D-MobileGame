@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 
 namespace CrystalMind.MatchMancer
@@ -21,11 +22,15 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float nextEnemyRoundDelay = 0.75f;
         [SerializeField, Min(0)] private int enemySkillCooldownTurns = 2;
 
+        [Header("Scene Settings")]
+        [SerializeField] private string homeSceneName = "Home";
+
         [Header("Actor References")]
         [SerializeField] private PlayerActor playerActor;
         [SerializeField] private EnemyActor enemyActor;
 
-        [Header("Enemy Rounds")]
+        [Header("Debug / Direct Play Fallback")]
+        // Used only when MainGame is played directly without a selected StageDefinition.
         [SerializeField] private EnemyDefinition[] enemyRoundSequence;
         [SerializeField] private int currentEnemyRoundIndex;
 
@@ -49,6 +54,8 @@ namespace CrystalMind.MatchMancer
         private int enemySkillTurnsRemaining;
         private bool enemyRoundSequenceActive;
         private bool isEnemyRoundTransitioning;
+        private EnemyDefinition[] activeEnemyRoundSequence;
+        private string currentStageName = "Stage";
 
         #endregion
 
@@ -76,6 +83,7 @@ namespace CrystalMind.MatchMancer
         public int PassiveStackThreshold => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.StackThreshold : 0;
         public string EnemySkillCooldownText => enemySkillTurnsRemaining <= 0 ? "Enemy Skill: Ready" : $"Enemy Skill: {enemySkillTurnsRemaining}";
         public string CurrentRoundText => GetRoundDisplayText();
+        public string CurrentStageText => currentStageName;
 
         #endregion
 
@@ -115,6 +123,7 @@ namespace CrystalMind.MatchMancer
 
             ResetGameData();
             ResetActorVisuals();
+            gameHUD?.HideResult();
             SetState(GameState.Playing);
         }
 
@@ -134,6 +143,7 @@ namespace CrystalMind.MatchMancer
             SetBoardInputBlocked(false);
             gameHUD?.ClearPlayerSkillText();
             gameHUD?.ClearEnemySkillText();
+            gameHUD?.HideResult();
 
             if (boardManager != null)
             {
@@ -292,12 +302,29 @@ namespace CrystalMind.MatchMancer
 
             if (playerActor != null && playerActor.CurrentHp <= 0)
             {
-                SetState(GameState.Lose);
-                playerActor.HideVisual();
-                LogSystem("Game Result: LOSE - Player defeated.");
+                HandlePlayerDefeated();
                 return;
             }
 
+        }
+
+        public void RetryCurrentStage()
+        {
+            LogSystem("Retry current stage.");
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+
+        public void BackToHome()
+        {
+            if (string.IsNullOrWhiteSpace(homeSceneName))
+            {
+                LogSystem("Back to home failed: home scene name is missing.");
+                return;
+            }
+
+            LogSystem("Back to home/menu.");
+            StageSession.SelectedStage = null;
+            SceneManager.LoadScene(homeSceneName);
         }
 
         #endregion
@@ -373,9 +400,7 @@ namespace CrystalMind.MatchMancer
 
                 if (playerActor != null && playerActor.CurrentHp <= 0)
                 {
-                    SetState(GameState.Lose);
-                    playerActor.HideVisual();
-                    LogSystem("Game Result: LOSE - Player defeated.");
+                    HandlePlayerDefeated();
                     FinishTurnResolve();
                     yield break;
                 }
@@ -393,9 +418,7 @@ namespace CrystalMind.MatchMancer
 
             if (playerActor != null && playerActor.CurrentHp <= 0)
             {
-                SetState(GameState.Lose);
-                playerActor.HideVisual();
-                LogSystem("Game Result: LOSE - Player defeated.");
+                HandlePlayerDefeated();
                 FinishTurnResolve();
                 yield break;
             }
@@ -500,13 +523,15 @@ namespace CrystalMind.MatchMancer
         {
             enemyRoundSequenceActive = false;
             currentEnemyRoundIndex = 0;
+            activeEnemyRoundSequence = ResolveActiveEnemyRoundSequence();
+            enemyRoundSequenceActive = activeEnemyRoundSequence != null && activeEnemyRoundSequence.Length > 0;
 
             if (TryApplyEnemyRound(currentEnemyRoundIndex))
             {
-                enemyRoundSequenceActive = true;
                 return;
             }
 
+            enemyRoundSequenceActive = false;
             ApplyFallbackEnemy();
         }
 
@@ -854,23 +879,33 @@ namespace CrystalMind.MatchMancer
             SetState(GameState.Win);
             enemyActor?.HideVisual();
             isEnemyRoundTransitioning = false;
+            ShowResult(true);
             LogSystem("Final enemy defeated, battle won.");
+        }
+
+        private void HandlePlayerDefeated()
+        {
+            SetState(GameState.Lose);
+            SetBoardInputBlocked(true);
+            playerActor?.HideVisual();
+            ShowResult(false);
+            LogSystem("Game Result: LOSE - Player defeated.");
         }
 
         private bool TryGetNextEnemyRoundIndex(out int nextRoundIndex)
         {
             nextRoundIndex = -1;
 
-            if (!enemyRoundSequenceActive || enemyRoundSequence == null || enemyRoundSequence.Length == 0)
+            if (!enemyRoundSequenceActive || activeEnemyRoundSequence == null || activeEnemyRoundSequence.Length == 0)
             {
                 return false;
             }
 
-            for (int index = currentEnemyRoundIndex + 1; index < enemyRoundSequence.Length; index++)
+            for (int index = currentEnemyRoundIndex + 1; index < activeEnemyRoundSequence.Length; index++)
             {
-                if (enemyRoundSequence[index] == null || !enemyRoundSequence[index].IsValid)
+                if (activeEnemyRoundSequence[index] == null || !activeEnemyRoundSequence[index].IsValid)
                 {
-                    LogSystem($"Enemy round {index + 1}/{enemyRoundSequence.Length} is not valid and will be skipped.");
+                    LogSystem($"Enemy round {index + 1}/{activeEnemyRoundSequence.Length} is not valid and will be skipped.");
                     continue;
                 }
 
@@ -884,27 +919,27 @@ namespace CrystalMind.MatchMancer
 
         private bool TryApplyEnemyRound(int roundIndex)
         {
-            if (enemyRoundSequence == null || enemyRoundSequence.Length == 0)
+            if (activeEnemyRoundSequence == null || activeEnemyRoundSequence.Length == 0)
             {
                 return false;
             }
 
-            if (roundIndex < 0 || roundIndex >= enemyRoundSequence.Length)
+            if (roundIndex < 0 || roundIndex >= activeEnemyRoundSequence.Length)
             {
                 LogSystem($"Enemy round index {roundIndex} is outside the configured sequence.");
                 return false;
             }
 
-            EnemyDefinition definition = enemyRoundSequence[roundIndex];
+            EnemyDefinition definition = activeEnemyRoundSequence[roundIndex];
 
-            if (!TryApplyEnemyDefinition(definition, $"enemy round {roundIndex + 1}/{enemyRoundSequence.Length}"))
+            if (!TryApplyEnemyDefinition(definition, $"enemy round {roundIndex + 1}/{activeEnemyRoundSequence.Length}"))
             {
                 return false;
             }
 
             currentEnemyRoundIndex = roundIndex;
             enemySkillTurnsRemaining = 0;
-            LogSystem($"Battle enemy round started: {roundIndex + 1}/{enemyRoundSequence.Length} - {definition.DisplayName}");
+            LogSystem($"Battle enemy round started: {roundIndex + 1}/{activeEnemyRoundSequence.Length} - {definition.DisplayName}");
             LogSystem($"Enemy round started with visual: {definition.DisplayName}");
             LogSystem($"Round UI updated: {GetRoundDisplayText()}");
             return true;
@@ -929,6 +964,34 @@ namespace CrystalMind.MatchMancer
             LogSystem("GameManager: No Enemy round sequence or fallback EnemyActor setup is assigned.");
         }
 
+        private EnemyDefinition[] ResolveActiveEnemyRoundSequence()
+        {
+            StageDefinition selectedStage = StageSession.SelectedStage;
+
+            if (selectedStage != null)
+            {
+                currentStageName = selectedStage.StageDisplayName;
+                LogSystem($"Stage selected: {currentStageName}");
+
+                if (selectedStage.HasEnemyRounds)
+                {
+                    return selectedStage.EnemyRoundSequence;
+                }
+
+                LogSystem($"Selected stage '{currentStageName}' has no enemy rounds. Falling back to GameManager inspector sequence.");
+            }
+
+            currentStageName = "Direct Battle";
+
+            if (enemyRoundSequence != null && enemyRoundSequence.Length > 0)
+            {
+                LogSystem("Using GameManager inspector enemy round sequence.");
+                return enemyRoundSequence;
+            }
+
+            return null;
+        }
+
         private bool TryApplyEnemyDefinition(EnemyDefinition definition, string source)
         {
             if (enemyActor == null || definition == null)
@@ -947,11 +1010,11 @@ namespace CrystalMind.MatchMancer
 
         private void LogEnemyDefeated()
         {
-            if (enemyRoundSequenceActive && enemyRoundSequence != null && currentEnemyRoundIndex >= 0 && currentEnemyRoundIndex < enemyRoundSequence.Length)
+            if (enemyRoundSequenceActive && activeEnemyRoundSequence != null && currentEnemyRoundIndex >= 0 && currentEnemyRoundIndex < activeEnemyRoundSequence.Length)
             {
-                EnemyDefinition defeatedEnemy = enemyRoundSequence[currentEnemyRoundIndex];
+                EnemyDefinition defeatedEnemy = activeEnemyRoundSequence[currentEnemyRoundIndex];
                 string defeatedName = defeatedEnemy != null ? defeatedEnemy.DisplayName : "Unknown Enemy";
-                LogSystem($"Enemy round defeated: {currentEnemyRoundIndex + 1}/{enemyRoundSequence.Length} - {defeatedName}");
+                LogSystem($"Enemy round defeated: {currentEnemyRoundIndex + 1}/{activeEnemyRoundSequence.Length} - {defeatedName}");
                 return;
             }
 
@@ -980,17 +1043,25 @@ namespace CrystalMind.MatchMancer
 
         private string GetRoundDisplayText()
         {
-            if (!enemyRoundSequenceActive || enemyRoundSequence == null || enemyRoundSequence.Length <= 1)
+            if (!enemyRoundSequenceActive || activeEnemyRoundSequence == null || activeEnemyRoundSequence.Length <= 1)
             {
                 return "Final Round";
             }
 
-            if (currentEnemyRoundIndex >= enemyRoundSequence.Length - 1)
+            if (currentEnemyRoundIndex >= activeEnemyRoundSequence.Length - 1)
             {
                 return "Final Round";
             }
 
             return $"Round {currentEnemyRoundIndex + 1}";
+        }
+
+        private void ShowResult(bool isWin)
+        {
+            SetBoardInputBlocked(true);
+            string resultStageName = StageSession.SelectedStage != null ? currentStageName : string.Empty;
+            gameHUD?.ShowResult(isWin, resultStageName);
+            LogSystem($"Result shown: {(isWin ? "win" : "lose")}");
         }
 
         private void LogPlayer(string message)

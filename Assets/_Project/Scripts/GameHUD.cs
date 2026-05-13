@@ -12,13 +12,20 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private TMP_Text playerHpText;
     [SerializeField] private TMP_Text enemyHpText;
     [SerializeField] private TMP_Text speedText;
+    [SerializeField] private TMP_Text currentStageText;
+    [SerializeField] private TMP_Text currentRoundText;
     [SerializeField] private TMP_Text passiveStackText;
     [SerializeField] private TMP_Text playerSkillText;
     [SerializeField] private TMP_Text enemySkillText;
     [SerializeField] private TMP_Text stateText;
+    [SerializeField] private GameObject resultPanel;
+    [SerializeField] private TMP_Text resultTitleText;
+    [SerializeField] private TMP_Text resultDescriptionText;
     [SerializeField] private Image activeSkillBlockerImage;
     [SerializeField] private Button activeSkillButton;
     [SerializeField] private Button restartButton;
+    [SerializeField] private Button retryButton;
+    [SerializeField] private Button backToHomeButton;
 
     #endregion
 
@@ -30,6 +37,18 @@ public class GameHUD : MonoBehaviour
         {
             restartButton.onClick.AddListener(OnRestartClicked);
         }
+
+        if (retryButton != null)
+        {
+            retryButton.onClick.AddListener(OnRetryClicked);
+        }
+
+        if (backToHomeButton != null)
+        {
+            backToHomeButton.onClick.AddListener(OnBackToHomeClicked);
+        }
+
+        HideResult();
     }
 
     private void OnDestroy()
@@ -37,6 +56,16 @@ public class GameHUD : MonoBehaviour
         if (restartButton != null)
         {
             restartButton.onClick.RemoveListener(OnRestartClicked);
+        }
+
+        if (retryButton != null)
+        {
+            retryButton.onClick.RemoveListener(OnRetryClicked);
+        }
+
+        if (backToHomeButton != null)
+        {
+            backToHomeButton.onClick.RemoveListener(OnBackToHomeClicked);
         }
     }
 
@@ -69,6 +98,25 @@ public class GameHUD : MonoBehaviour
         SetText(enemySkillText, string.Empty);
     }
 
+    public void ShowResult(bool isWin, string stageName)
+    {
+        if (resultPanel != null)
+        {
+            resultPanel.SetActive(true);
+        }
+
+        SetText(resultTitleText, isWin ? "Stage Clear" : "Defeated");
+        SetText(resultDescriptionText, GetResultDescription(isWin, stageName));
+    }
+
+    public void HideResult()
+    {
+        if (resultPanel != null)
+        {
+            resultPanel.SetActive(false);
+        }
+    }
+
     #endregion
 
     #region Private Methods
@@ -83,6 +131,8 @@ public class GameHUD : MonoBehaviour
         SetText(playerHpText, $"Player HP: {gameManager.PlayerCurrentHp} / {gameManager.PlayerMaxHp}");
         SetText(enemyHpText, $"Enemy HP: {gameManager.EnemyCurrentHp} / {gameManager.EnemyMaxHp}");
         SetText(speedText, gameManager.SpeedInfoText);
+        SetText(currentStageText, gameManager.CurrentStageText);
+        SetText(currentRoundText, gameManager.CurrentRoundText);
         SetText(passiveStackText, $"Passive: {gameManager.PurplePassiveStack}");
         SetText(stateText, gameManager.TurnStatusText);
         RefreshActiveSkillBlocker();
@@ -110,6 +160,32 @@ public class GameHUD : MonoBehaviour
         {
             gameManager.RestartGame();
         }
+    }
+
+    private void OnRetryClicked()
+    {
+        if (gameManager != null)
+        {
+            gameManager.RetryCurrentStage();
+        }
+    }
+
+    private void OnBackToHomeClicked()
+    {
+        if (gameManager != null)
+        {
+            gameManager.BackToHome();
+        }
+    }
+
+    private string GetResultDescription(bool isWin, string stageName)
+    {
+        if (!isWin)
+        {
+            return "Try again";
+        }
+
+        return string.IsNullOrWhiteSpace(stageName) ? "Battle complete" : stageName;
     }
 
     private void SetText(TMP_Text text, string value)

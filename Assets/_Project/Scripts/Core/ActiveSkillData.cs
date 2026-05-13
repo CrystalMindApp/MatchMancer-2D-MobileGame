@@ -7,7 +7,7 @@ namespace CrystalMind.MatchMancer
         ClearTileColor
     }
 
-    [CreateAssetMenu(fileName = "ActiveSkillData", menuName = "MatchMancer/Active Skill Data")]
+    [CreateAssetMenu(fileName = "ActiveSkillData", menuName = "MatchMancer/Player/Active Skill Data")]
     public class ActiveSkillData : ScriptableObject
     {
         #region Variables

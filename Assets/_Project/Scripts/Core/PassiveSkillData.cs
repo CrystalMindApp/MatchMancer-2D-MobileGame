@@ -14,7 +14,7 @@ namespace CrystalMind.MatchMancer
         CreateRandomBomb
     }
 
-    [CreateAssetMenu(fileName = "PassiveSkillData", menuName = "MatchMancer/Passive Skill Data")]
+    [CreateAssetMenu(fileName = "PassiveSkillData", menuName = "MatchMancer/Player/Passive Skill Data")]
     public class PassiveSkillData : ScriptableObject
     {
         #region Variables

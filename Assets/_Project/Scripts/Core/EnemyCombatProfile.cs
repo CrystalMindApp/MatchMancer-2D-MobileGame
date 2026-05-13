@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace CrystalMind.MatchMancer
 {
-    [CreateAssetMenu(fileName = "EnemyCombatProfile", menuName = "MatchMancer/Enemy Combat Profile")]
+    [CreateAssetMenu(fileName = "EnemyCombatProfile", menuName = "MatchMancer/Enemy/Enemy Combat Profile")]
     public class EnemyCombatProfile : ScriptableObject
     {
         #region Variables
