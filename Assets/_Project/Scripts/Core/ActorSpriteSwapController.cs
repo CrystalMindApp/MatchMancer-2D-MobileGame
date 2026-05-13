@@ -68,6 +68,34 @@ namespace CrystalMind.MatchMancer
             PlayTemporarySprite(skillSprite);
         }
 
+        public void ApplySprites(Sprite idle, Sprite attack, Sprite skill, Sprite getHit)
+        {
+            if (idle != null)
+            {
+                idleSprite = idle;
+            }
+
+            if (attack != null)
+            {
+                attackSprite = attack;
+            }
+
+            if (skill != null)
+            {
+                skillSprite = skill;
+            }
+
+            if (getHit != null)
+            {
+                getHitSprite = getHit;
+            }
+
+            if (idleSprite != null)
+            {
+                ShowIdle();
+            }
+        }
+
         public void Hide()
         {
             StopReturnRoutine();

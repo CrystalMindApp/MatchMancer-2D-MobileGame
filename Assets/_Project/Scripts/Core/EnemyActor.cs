@@ -48,6 +48,39 @@ namespace CrystalMind.MatchMancer
             curseTurnsRemaining = 0;
         }
 
+        public void SetCombatProfile(EnemyCombatProfile profile)
+        {
+            if (profile == null)
+            {
+                Debug.LogWarning("EnemyActor: Ignored null combat profile assignment.");
+                return;
+            }
+
+            combatProfile = profile;
+        }
+
+        public bool ApplyEnemyDefinition(EnemyDefinition definition)
+        {
+            if (definition == null)
+            {
+                Debug.LogWarning("EnemyActor: Cannot apply a null EnemyDefinition.");
+                return false;
+            }
+
+            if (!definition.IsValid)
+            {
+                Debug.LogWarning($"EnemyActor: EnemyDefinition '{definition.name}' is missing CharacterData or EnemyCombatProfile.");
+                return false;
+            }
+
+            characterData = definition.CharacterData;
+            combatProfile = definition.CombatProfile;
+            InitializeRuntimeState();
+            ApplyDefinitionVisuals(definition);
+            ResetVisual();
+            return true;
+        }
+
         public void TakeDamage(int amount)
         {
             currentHp = Mathf.Max(0, currentHp - Mathf.Max(0, amount));
@@ -122,6 +155,37 @@ namespace CrystalMind.MatchMancer
         public void ResetVisual()
         {
             visualController?.ResetToIdle();
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private void ApplyDefinitionVisuals(EnemyDefinition definition)
+        {
+            if (definition == null || !definition.HasVisualSprites)
+            {
+                return;
+            }
+
+            if (visualController == null)
+            {
+                Debug.LogWarning($"EnemyActor: Missing ActorSpriteSwapController. Enemy visual sprites were not applied for {definition.DisplayName}.");
+                return;
+            }
+
+            if (definition.IdleSprite == null)
+            {
+                Debug.LogWarning($"EnemyActor: EnemyDefinition '{definition.DisplayName}' has visual sprites but no idle sprite.");
+            }
+
+            visualController.ApplySprites(
+                definition.IdleSprite,
+                definition.AttackSprite,
+                definition.SkillSprite,
+                definition.GetHitSprite);
+
+            Debug.Log($"Enemy visual sprites applied: {definition.DisplayName}");
         }
 
         #endregion

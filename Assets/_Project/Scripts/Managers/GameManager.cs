@@ -18,11 +18,16 @@ namespace CrystalMind.MatchMancer
 
         [Header("Turn Settings")]
         [SerializeField, Min(0f)] private float actorActionDelay = 1f;
+        [SerializeField, Min(0f)] private float nextEnemyRoundDelay = 0.75f;
         [SerializeField, Min(0)] private int enemySkillCooldownTurns = 2;
 
         [Header("Actor References")]
         [SerializeField] private PlayerActor playerActor;
         [SerializeField] private EnemyActor enemyActor;
+
+        [Header("Enemy Rounds")]
+        [SerializeField] private EnemyDefinition[] enemyRoundSequence;
+        [SerializeField] private int currentEnemyRoundIndex;
 
         [Header("Curse Settings")]
         [SerializeField, Range(0f, 1f)] private float defaultCurseMissChance = 0.25f;
@@ -42,6 +47,8 @@ namespace CrystalMind.MatchMancer
         private bool isActiveSkillResolving;
         private string turnStatusText = "Player Turn";
         private int enemySkillTurnsRemaining;
+        private bool enemyRoundSequenceActive;
+        private bool isEnemyRoundTransitioning;
 
         #endregion
 
@@ -61,12 +68,14 @@ namespace CrystalMind.MatchMancer
             IsActiveSkillReady &&
             !isTurnResolving &&
             !isActiveSkillResolving &&
+            !isEnemyRoundTransitioning &&
             boardManager != null &&
             !boardManager.IsResolving;
         public string TurnStatusText => turnStatusText;
         public string SpeedInfoText => $"P: {(playerActor != null ? playerActor.CurrentTurnSpeed : 0)}  E: {(enemyActor != null ? enemyActor.BaseSpeed : 0)}";
         public int PassiveStackThreshold => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.StackThreshold : 0;
         public string EnemySkillCooldownText => enemySkillTurnsRemaining <= 0 ? "Enemy Skill: Ready" : $"Enemy Skill: {enemySkillTurnsRemaining}";
+        public string CurrentRoundText => GetRoundDisplayText();
 
         #endregion
 
@@ -96,6 +105,8 @@ namespace CrystalMind.MatchMancer
 
         public void StartGame()
         {
+            ApplyStartingEnemy();
+
             if (!HasRequiredActorReferences())
             {
                 SetState(GameState.Start);
@@ -110,6 +121,7 @@ namespace CrystalMind.MatchMancer
         public void RestartGame()
         {
             StopAllCoroutines();
+            ApplyStartingEnemy();
 
             if (!HasRequiredActorReferences())
             {
@@ -274,9 +286,7 @@ namespace CrystalMind.MatchMancer
 
             if (enemyActor != null && enemyActor.CurrentHp <= 0)
             {
-                SetState(GameState.Win);
-                enemyActor.HideVisual();
-                LogSystem("Game Result: WIN - Enemy defeated.");
+                StartCoroutine(HandleEnemyDefeatedRoutine());
                 return;
             }
 
@@ -347,9 +357,7 @@ namespace CrystalMind.MatchMancer
 
                 if (enemyActor != null && enemyActor.CurrentHp <= 0)
                 {
-                    SetState(GameState.Win);
-                    enemyActor.HideVisual();
-                    LogSystem("Game Result: WIN - Enemy defeated.");
+                    yield return StartCoroutine(HandleEnemyDefeatedRoutine());
                     FinishTurnResolve();
                     yield break;
                 }
@@ -378,9 +386,7 @@ namespace CrystalMind.MatchMancer
 
             if (enemyActor != null && enemyActor.CurrentHp <= 0)
             {
-                SetState(GameState.Win);
-                enemyActor.HideVisual();
-                LogSystem("Game Result: WIN - Enemy defeated.");
+                yield return StartCoroutine(HandleEnemyDefeatedRoutine());
                 FinishTurnResolve();
                 yield break;
             }
@@ -430,10 +436,14 @@ namespace CrystalMind.MatchMancer
             isActiveSkillResolving = false;
             pendingCritChance = 0f;
             playerActor?.ResetTurnSpeedBonus();
-            SetBoardInputBlocked(false);
             gameHUD?.ClearPlayerSkillText();
             gameHUD?.ClearEnemySkillText();
-            turnStatusText = "Player Turn";
+
+            if (IsPlaying)
+            {
+                SetBoardInputBlocked(false);
+                turnStatusText = "Player Turn";
+            }
         }
 
         private bool CanUseActiveSkill(ActiveSkillData activeSkill, TileType targetType)
@@ -450,7 +460,7 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            if (isTurnResolving || isActiveSkillResolving || boardManager == null || boardManager.IsResolving)
+            if (isTurnResolving || isActiveSkillResolving || isEnemyRoundTransitioning || boardManager == null || boardManager.IsResolving)
             {
                 LogSkillWarning("Active Skill unavailable: board or turn is resolving.");
                 return false;
@@ -483,6 +493,21 @@ namespace CrystalMind.MatchMancer
             isActiveSkillResolving = false;
             turnStatusText = "Player Turn";
             enemySkillTurnsRemaining = 0;
+            isEnemyRoundTransitioning = false;
+        }
+
+        private void ApplyStartingEnemy()
+        {
+            enemyRoundSequenceActive = false;
+            currentEnemyRoundIndex = 0;
+
+            if (TryApplyEnemyRound(currentEnemyRoundIndex))
+            {
+                enemyRoundSequenceActive = true;
+                return;
+            }
+
+            ApplyFallbackEnemy();
         }
 
         private void ApplyTileColorEffect(TileType tileType, int tileCount, int comboCount)
@@ -793,6 +818,179 @@ namespace CrystalMind.MatchMancer
             }
 
             return hasReferences;
+        }
+
+        private IEnumerator HandleEnemyDefeatedRoutine()
+        {
+            if (isEnemyRoundTransitioning)
+            {
+                yield break;
+            }
+
+            isEnemyRoundTransitioning = true;
+            SetBoardInputBlocked(true);
+            LogEnemyDefeated();
+
+            if (TryGetNextEnemyRoundIndex(out int nextRoundIndex))
+            {
+                enemyActor?.HideVisual();
+                LogSystem($"Waiting before next enemy round: {nextEnemyRoundDelay:0.##} seconds.");
+                yield return new WaitForSeconds(nextEnemyRoundDelay);
+
+                if (TryApplyEnemyRound(nextRoundIndex))
+                {
+                    enemyActor?.ShowVisual();
+                    isEnemyRoundTransitioning = false;
+
+                    if (!isTurnResolving && IsPlaying)
+                    {
+                        SetBoardInputBlocked(false);
+                    }
+
+                    yield break;
+                }
+            }
+
+            SetState(GameState.Win);
+            enemyActor?.HideVisual();
+            isEnemyRoundTransitioning = false;
+            LogSystem("Final enemy defeated, battle won.");
+        }
+
+        private bool TryGetNextEnemyRoundIndex(out int nextRoundIndex)
+        {
+            nextRoundIndex = -1;
+
+            if (!enemyRoundSequenceActive || enemyRoundSequence == null || enemyRoundSequence.Length == 0)
+            {
+                return false;
+            }
+
+            for (int index = currentEnemyRoundIndex + 1; index < enemyRoundSequence.Length; index++)
+            {
+                if (enemyRoundSequence[index] == null || !enemyRoundSequence[index].IsValid)
+                {
+                    LogSystem($"Enemy round {index + 1}/{enemyRoundSequence.Length} is not valid and will be skipped.");
+                    continue;
+                }
+
+                nextRoundIndex = index;
+                LogSystem("Advancing to next enemy round.");
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryApplyEnemyRound(int roundIndex)
+        {
+            if (enemyRoundSequence == null || enemyRoundSequence.Length == 0)
+            {
+                return false;
+            }
+
+            if (roundIndex < 0 || roundIndex >= enemyRoundSequence.Length)
+            {
+                LogSystem($"Enemy round index {roundIndex} is outside the configured sequence.");
+                return false;
+            }
+
+            EnemyDefinition definition = enemyRoundSequence[roundIndex];
+
+            if (!TryApplyEnemyDefinition(definition, $"enemy round {roundIndex + 1}/{enemyRoundSequence.Length}"))
+            {
+                return false;
+            }
+
+            currentEnemyRoundIndex = roundIndex;
+            enemySkillTurnsRemaining = 0;
+            LogSystem($"Battle enemy round started: {roundIndex + 1}/{enemyRoundSequence.Length} - {definition.DisplayName}");
+            LogSystem($"Enemy round started with visual: {definition.DisplayName}");
+            LogSystem($"Round UI updated: {GetRoundDisplayText()}");
+            return true;
+        }
+
+        private void ApplyFallbackEnemy()
+        {
+            if (enemyActor == null)
+            {
+                LogSystem("GameManager: EnemyActor reference is missing.");
+                return;
+            }
+
+            if (enemyActor.CharacterData != null && enemyActor.CombatProfile != null)
+            {
+                enemySkillTurnsRemaining = 0;
+                LogSystem($"Fallback enemy used: {GetCurrentEnemyDisplayName()}");
+                LogSystem($"Round UI updated: {GetRoundDisplayText()}");
+                return;
+            }
+
+            LogSystem("GameManager: No Enemy round sequence or fallback EnemyActor setup is assigned.");
+        }
+
+        private bool TryApplyEnemyDefinition(EnemyDefinition definition, string source)
+        {
+            if (enemyActor == null || definition == null)
+            {
+                return false;
+            }
+
+            if (!enemyActor.ApplyEnemyDefinition(definition))
+            {
+                LogSystem($"GameManager: Failed to apply {source}.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void LogEnemyDefeated()
+        {
+            if (enemyRoundSequenceActive && enemyRoundSequence != null && currentEnemyRoundIndex >= 0 && currentEnemyRoundIndex < enemyRoundSequence.Length)
+            {
+                EnemyDefinition defeatedEnemy = enemyRoundSequence[currentEnemyRoundIndex];
+                string defeatedName = defeatedEnemy != null ? defeatedEnemy.DisplayName : "Unknown Enemy";
+                LogSystem($"Enemy round defeated: {currentEnemyRoundIndex + 1}/{enemyRoundSequence.Length} - {defeatedName}");
+                return;
+            }
+
+            LogSystem($"Enemy round defeated: {GetCurrentEnemyDisplayName()}");
+        }
+
+        private string GetCurrentEnemyDisplayName()
+        {
+            if (enemyActor == null)
+            {
+                return "Enemy";
+            }
+
+            if (enemyActor.CharacterData != null)
+            {
+                return enemyActor.CharacterData.CharacterName;
+            }
+
+            if (enemyActor.CombatProfile != null)
+            {
+                return enemyActor.CombatProfile.name;
+            }
+
+            return "Enemy";
+        }
+
+        private string GetRoundDisplayText()
+        {
+            if (!enemyRoundSequenceActive || enemyRoundSequence == null || enemyRoundSequence.Length <= 1)
+            {
+                return "Final Round";
+            }
+
+            if (currentEnemyRoundIndex >= enemyRoundSequence.Length - 1)
+            {
+                return "Final Round";
+            }
+
+            return $"Round {currentEnemyRoundIndex + 1}";
         }
 
         private void LogPlayer(string message)
