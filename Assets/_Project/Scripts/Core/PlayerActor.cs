@@ -31,9 +31,11 @@ namespace CrystalMind.MatchMancer
         public ActiveSkillData ActiveSkill => combatProfile != null ? combatProfile.ActiveSkill : null;
         public PassiveSkillData PassiveSkill => combatProfile != null ? combatProfile.PassiveSkill : null;
         public int MaxHp => characterData != null ? characterData.MaxHP : 0;
+        public int MaxHP => MaxHp;
         public int BaseSpeed => characterData != null ? characterData.BaseSpeed : 0;
         public int CurrentTurnSpeed => BaseSpeed + currentTurnSpeedBonus;
         public int CurrentHp => Mathf.Max(0, currentHp);
+        public int CurrentHP => CurrentHp;
         public float AttackMultiplier => characterData != null ? characterData.AttackMultiplier : 1f;
         public int BaseDamagePerTile => combatProfile != null ? combatProfile.BaseDamagePerTile : 0;
         public float RedCritChancePerTile => combatProfile != null ? combatProfile.RedCritChancePerTile : 0f;

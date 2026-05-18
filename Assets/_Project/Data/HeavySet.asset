@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91d2ef7b8320472db9a7d7c21403f94f, type: 3}
+  m_Name: HeavySet
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.EnemyDefinition
+  displayName: Heavy
+  characterData: {fileID: 11400000, guid: 8c7993332cb5393499aecbdd23a8304b, type: 2}
+  combatProfile: {fileID: 11400000, guid: 6b490e73d0d1d3f4688605814955d2c7, type: 2}
+  idleSprite: {fileID: -1516509873602144725, guid: c94fd768aeedacb4ba0a810235f211a4, type: 3}
+  attackSprite: {fileID: -8083504753537077543, guid: c94fd768aeedacb4ba0a810235f211a4, type: 3}
+  skillSprite: {fileID: 4869165696151964156, guid: c94fd768aeedacb4ba0a810235f211a4, type: 3}
+  getHitSprite: {fileID: 1662901208640994194, guid: c94fd768aeedacb4ba0a810235f211a4, type: 3}

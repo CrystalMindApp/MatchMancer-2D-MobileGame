@@ -18,6 +18,16 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Range(1, 30)] private int maxResolveLoops = 10;
         [SerializeField, Range(0f, 1f)] private float resolveStepDelay = 0.3f;
 
+        [Header("Animation")]
+        [SerializeField, Min(0f)] private float tileSwapDuration = 0.15f;
+        [SerializeField, Min(0f)] private float tileFallDuration = 0.18f;
+        [SerializeField, Min(0f)] private float tileFallSpeed = 8f;
+        [SerializeField, Min(0f)] private float minTileFallDuration = 0.08f;
+        [SerializeField, Min(0f)] private float maxTileFallDuration = 0.35f;
+        [SerializeField, Min(0f)] private float tileRefillSpawnOffset = 1f;
+        [SerializeField] private AnimationCurve tileSwapCurve;
+        [SerializeField] private AnimationCurve tileFallCurve;
+
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
 
@@ -37,8 +47,25 @@ namespace CrystalMind.MatchMancer
 
         // State
         private bool isResolving;
+        private bool isSwapping;
         private bool isInputBlocked;
         private int lastResolveClearedTileCount;
+
+        private struct TileMoveAnimation
+        {
+            public Tile Tile;
+            public Vector3 StartPosition;
+            public Vector3 TargetPosition;
+            public float Duration;
+
+            public TileMoveAnimation(Tile tile, Vector3 startPosition, Vector3 targetPosition, float duration)
+            {
+                Tile = tile;
+                StartPosition = startPosition;
+                TargetPosition = targetPosition;
+                Duration = duration;
+            }
+        }
 
         #endregion
 
@@ -47,7 +74,7 @@ namespace CrystalMind.MatchMancer
         public int Rows => rows;
         public int Cols => cols;
         public bool IsResolving => isResolving;
-        public bool CanReceiveInput => !isResolving && !isInputBlocked && (gameManager == null || gameManager.IsPlaying);
+        public bool CanReceiveInput => !isResolving && !isSwapping && !isInputBlocked && (gameManager == null || gameManager.IsPlaying);
 
         #endregion
 
@@ -165,7 +192,7 @@ namespace CrystalMind.MatchMancer
 
         public bool TryActivateColorClearSkill(TileType targetType)
         {
-            if (isResolving || (gameManager != null && !gameManager.IsPlaying))
+            if (isResolving || isSwapping || (gameManager != null && !gameManager.IsPlaying))
             {
                 return false;
             }
@@ -441,6 +468,7 @@ namespace CrystalMind.MatchMancer
         private IEnumerator RestartBoardRoutine()
         {
             isResolving = true;
+            isSwapping = false;
             ClearSelection();
             GenerateBoard();
             ValidateBoardData();
@@ -451,21 +479,24 @@ namespace CrystalMind.MatchMancer
         private IEnumerator TrySwapRoutine(Tile firstTile, Tile secondTile)
         {
             isResolving = true;
+            isSwapping = true;
             ClearSelection();
 
-            SwapTiles(firstTile, secondTile);
-            yield return new WaitForSeconds(resolveStepDelay);
+            SwapTiles(firstTile, secondTile, false);
+            yield return StartCoroutine(AnimateTileSwap(firstTile, secondTile));
 
             List<MatchGroup> matchGroups = matchFinder.FindMatchGroups();
             if (matchGroups.Count == 0)
             {
-                SwapTiles(firstTile, secondTile);
-                yield return new WaitForSeconds(resolveStepDelay);
+                SwapTiles(firstTile, secondTile, false);
+                yield return StartCoroutine(AnimateTileSwap(firstTile, secondTile));
 
+                isSwapping = false;
                 isResolving = false;
                 yield break;
             }
 
+            isSwapping = false;
             recentSwapFirstTile = firstTile;
             recentSwapSecondTile = secondTile;
 
@@ -475,6 +506,7 @@ namespace CrystalMind.MatchMancer
 
             recentSwapFirstTile = null;
             recentSwapSecondTile = null;
+            isSwapping = false;
             isResolving = false;
 
             gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
@@ -511,10 +543,9 @@ namespace CrystalMind.MatchMancer
 
                 yield return new WaitForSeconds(resolveStepDelay);
 
-                ApplyGravity();
-                yield return new WaitForSeconds(resolveStepDelay);
+                yield return StartCoroutine(ApplyGravityRoutine());
 
-                RefillBoard();
+                yield return StartCoroutine(RefillBoardRoutine());
                 yield return new WaitForSeconds(resolveStepDelay);
             }
 
@@ -538,10 +569,9 @@ namespace CrystalMind.MatchMancer
 
             yield return new WaitForSeconds(resolveStepDelay);
 
-            ApplyGravity();
-            yield return new WaitForSeconds(resolveStepDelay);
+            yield return StartCoroutine(ApplyGravityRoutine());
 
-            RefillBoard();
+            yield return StartCoroutine(RefillBoardRoutine());
             yield return new WaitForSeconds(resolveStepDelay);
 
             yield return StartCoroutine(ResolveBoardRoutine(true, false, 1));
@@ -561,7 +591,7 @@ namespace CrystalMind.MatchMancer
             StartCoroutine(TrySwapRoutine(selectedTile, targetTile));
         }
 
-        private void SwapTiles(Tile firstTile, Tile secondTile)
+        private void SwapTiles(Tile firstTile, Tile secondTile, bool updatePositions = true)
         {
             if (firstTile == null || secondTile == null)
             {
@@ -579,8 +609,65 @@ namespace CrystalMind.MatchMancer
             firstTile.SetCoordinate(secondRow, secondCol);
             secondTile.SetCoordinate(firstRow, firstCol);
 
-            firstTile.transform.localPosition = GetTileLocalPosition(secondRow, secondCol);
-            secondTile.transform.localPosition = GetTileLocalPosition(firstRow, firstCol);
+            if (updatePositions)
+            {
+                firstTile.transform.localPosition = GetTileLocalPosition(secondRow, secondCol);
+                secondTile.transform.localPosition = GetTileLocalPosition(firstRow, firstCol);
+            }
+        }
+
+        private IEnumerator AnimateTileSwap(Tile firstTile, Tile secondTile)
+        {
+            if (firstTile == null || secondTile == null)
+            {
+                yield break;
+            }
+
+            Vector3 firstTarget = GetTileLocalPosition(firstTile.Row, firstTile.Col);
+            Vector3 secondTarget = GetTileLocalPosition(secondTile.Row, secondTile.Col);
+
+            yield return StartCoroutine(AnimateTilesToPositions(firstTile, firstTarget, secondTile, secondTarget, tileSwapDuration));
+        }
+
+        private IEnumerator AnimateTilesToPositions(Tile firstTile, Vector3 firstTarget, Tile secondTile, Vector3 secondTarget, float duration)
+        {
+            if (firstTile == null || secondTile == null)
+            {
+                yield break;
+            }
+
+            Vector3 firstStart = firstTile.transform.localPosition;
+            Vector3 secondStart = secondTile.transform.localPosition;
+            float safeDuration = Mathf.Max(0f, duration);
+
+            if (safeDuration <= 0f)
+            {
+                firstTile.transform.localPosition = firstTarget;
+                secondTile.transform.localPosition = secondTarget;
+                yield break;
+            }
+
+            float elapsed = 0f;
+
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.deltaTime;
+                float time = Mathf.Clamp01(elapsed / safeDuration);
+                float easedTime = EvaluateSwapCurve(time);
+
+                firstTile.transform.localPosition = Vector3.LerpUnclamped(firstStart, firstTarget, easedTime);
+                secondTile.transform.localPosition = Vector3.LerpUnclamped(secondStart, secondTarget, easedTime);
+
+                yield return null;
+            }
+
+            firstTile.transform.localPosition = firstTarget;
+            secondTile.transform.localPosition = secondTarget;
+        }
+
+        private float EvaluateSwapCurve(float time)
+        {
+            return EvaluateAnimationCurve(tileSwapCurve, time);
         }
 
         private void SelectTile(Tile tile)
@@ -917,8 +1004,10 @@ namespace CrystalMind.MatchMancer
             }
         }
 
-        private void ApplyGravity()
+        private IEnumerator ApplyGravityRoutine()
         {
+            List<TileMoveAnimation> moves = new List<TileMoveAnimation>();
+
             for (int col = 0; col < cols; col++)
             {
                 int emptyRow = -1;
@@ -946,18 +1035,26 @@ namespace CrystalMind.MatchMancer
                     boardTiles[row, col] = null;
 
                     tile.SetCoordinate(emptyRow, col);
-                    tile.transform.localPosition = GetTileLocalPosition(emptyRow, col);
+                    Vector3 targetPosition = GetTileLocalPosition(emptyRow, col);
+                    Vector3 startPosition = tile.transform.localPosition;
+                    moves.Add(new TileMoveAnimation(tile, startPosition, targetPosition, CalculateTileFallDuration(startPosition, targetPosition)));
 
                     emptyRow--;
                 }
             }
+
+            yield return StartCoroutine(AnimateTileMoves(moves, tileFallCurve));
         }
 
-        private void RefillBoard()
+        private IEnumerator RefillBoardRoutine()
         {
-            for (int row = 0; row < rows; row++)
+            List<TileMoveAnimation> moves = new List<TileMoveAnimation>();
+
+            for (int col = 0; col < cols; col++)
             {
-                for (int col = 0; col < cols; col++)
+                int refillSpawnIndex = 0;
+
+                for (int row = rows - 1; row >= 0; row--)
                 {
                     if (boardTiles[row, col] != null)
                     {
@@ -965,13 +1062,24 @@ namespace CrystalMind.MatchMancer
                     }
 
                     TileType randomType = GetRandomTileType();
-                    Tile tile = GetTileFromPool(row, col, randomType);
+                    Vector3 targetPosition = GetTileLocalPosition(row, col);
+                    Vector3 spawnPosition = GetRefillSpawnPosition(col, refillSpawnIndex);
+                    Tile tile = GetTileFromPool(row, col, randomType, spawnPosition);
                     boardTiles[row, col] = tile;
+                    moves.Add(new TileMoveAnimation(tile, spawnPosition, targetPosition, CalculateTileFallDuration(spawnPosition, targetPosition)));
+                    refillSpawnIndex++;
                 }
             }
+
+            yield return StartCoroutine(AnimateTileMoves(moves, tileFallCurve));
         }
 
         private Tile GetTileFromPool(int row, int col, TileType type)
+        {
+            return GetTileFromPool(row, col, type, GetTileLocalPosition(row, col));
+        }
+
+        private Tile GetTileFromPool(int row, int col, TileType type, Vector3 startLocalPosition)
         {
             Tile tile;
 
@@ -979,13 +1087,13 @@ namespace CrystalMind.MatchMancer
             {
                 tile = tilePool.Pop();
                 tile.transform.SetParent(GetTileParent(), false);
-                tile.transform.localPosition = GetTileLocalPosition(row, col);
+                tile.transform.localPosition = startLocalPosition;
                 tile.gameObject.SetActive(true);
             }
             else
             {
                 tile = Instantiate(tilePrefab, GetTileParent());
-                tile.transform.localPosition = GetTileLocalPosition(row, col);
+                tile.transform.localPosition = startLocalPosition;
                 tile.transform.localRotation = Quaternion.identity;
                 tile.SetBoardManager(this);
             }
@@ -1009,6 +1117,69 @@ namespace CrystalMind.MatchMancer
             return (TileType)randomIndex;
         }
 
+        private IEnumerator AnimateTileMoves(List<TileMoveAnimation> moves, AnimationCurve curve)
+        {
+            if (moves == null || moves.Count == 0)
+            {
+                yield break;
+            }
+
+            float maxDuration = GetMaxTileMoveDuration(moves);
+
+            if (maxDuration <= 0f)
+            {
+                SnapTileMoves(moves);
+                yield break;
+            }
+
+            float elapsed = 0f;
+
+            while (elapsed < maxDuration)
+            {
+                elapsed += Time.deltaTime;
+
+                for (int i = 0; i < moves.Count; i++)
+                {
+                    TileMoveAnimation move = moves[i];
+                    if (move.Tile != null)
+                    {
+                        float moveDuration = Mathf.Max(0f, move.Duration);
+                        float time = moveDuration > 0f ? Mathf.Clamp01(elapsed / moveDuration) : 1f;
+                        float easedTime = EvaluateAnimationCurve(curve, time);
+                        move.Tile.transform.localPosition = Vector3.LerpUnclamped(move.StartPosition, move.TargetPosition, easedTime);
+                    }
+                }
+
+                yield return null;
+            }
+
+            SnapTileMoves(moves);
+        }
+
+        private float GetMaxTileMoveDuration(List<TileMoveAnimation> moves)
+        {
+            float maxDuration = 0f;
+
+            for (int i = 0; i < moves.Count; i++)
+            {
+                maxDuration = Mathf.Max(maxDuration, moves[i].Duration);
+            }
+
+            return maxDuration;
+        }
+
+        private void SnapTileMoves(List<TileMoveAnimation> moves)
+        {
+            for (int i = 0; i < moves.Count; i++)
+            {
+                TileMoveAnimation move = moves[i];
+                if (move.Tile != null)
+                {
+                    move.Tile.transform.localPosition = move.TargetPosition;
+                }
+            }
+        }
+
         private Vector3 GetTileLocalPosition(int row, int col)
         {
             Vector2 boardOffset = GetBoardCenterOffset();
@@ -1017,6 +1188,38 @@ namespace CrystalMind.MatchMancer
             float y = -row * tileSpacing + boardOffset.y;
 
             return new Vector3(x, y, 0f);
+        }
+
+        private Vector3 GetRefillSpawnPosition(int col, int spawnIndex)
+        {
+            Vector3 topCellPosition = GetTileLocalPosition(0, col);
+            float rowOffset = tileRefillSpawnOffset + spawnIndex + 1f;
+            return new Vector3(topCellPosition.x, topCellPosition.y + rowOffset * tileSpacing, topCellPosition.z);
+        }
+
+        private float CalculateTileFallDuration(Vector3 startPosition, Vector3 targetPosition)
+        {
+            if (tileFallSpeed <= 0f)
+            {
+                return Mathf.Max(0f, tileFallDuration);
+            }
+
+            float distance = Vector3.Distance(startPosition, targetPosition);
+            float duration = distance / tileFallSpeed;
+            float minDuration = Mathf.Max(0f, minTileFallDuration);
+            float maxDuration = Mathf.Max(minDuration, maxTileFallDuration);
+
+            return Mathf.Clamp(duration, minDuration, maxDuration);
+        }
+
+        private float EvaluateAnimationCurve(AnimationCurve curve, float time)
+        {
+            if (curve == null || curve.length == 0)
+            {
+                return time;
+            }
+
+            return curve.Evaluate(time);
         }
 
         private Transform GetTileParent()

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91d2ef7b8320472db9a7d7c21403f94f, type: 3}
+  m_Name: BalanceSet
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.EnemyDefinition
+  displayName: Balanced
+  characterData: {fileID: 11400000, guid: 3b87e2e812dd4c2468899386c8912bc0, type: 2}
+  combatProfile: {fileID: 11400000, guid: 39f1ad55c5cfbbd49b14377d61f04a60, type: 2}
+  idleSprite: {fileID: -3661975606725021975, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
+  attackSprite: {fileID: 6810665785504363281, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
+  skillSprite: {fileID: 1920687853061580411, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
+  getHitSprite: {fileID: -1940056379714322047, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}

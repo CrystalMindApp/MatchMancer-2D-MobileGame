@@ -50,11 +50,31 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\_Project\Scripts\Board\BoardManager.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\StageDatabase.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\CharacterData.cs" />
     <Compile Include="Assets\_Project\Scripts\GameHUD.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\EnemyActor.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\PlayerActor.cs" />
     <Compile Include="Assets\_Project\Scripts\Tiles\SpecialTileType.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\StageSelectButton.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\StageSelectPanel.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\StageProgressionDebugInput.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\PlayerCombatProfile.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\StageProgression.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\EnemyDatabase.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\SceneAudioLibrary.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\ActiveSkillData.cs" />
     <Compile Include="Assets\_Project\Scripts\Board\MatchFinder.cs" />
     <Compile Include="Assets\_Project\Scripts\Managers\GameManager.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\EnemyDefinition.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\ActorSpriteSwapController.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\EnemyCombatProfile.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\AudioManager.cs" />
     <Compile Include="Assets\_Project\Scripts\Tiles\TileType.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\StageDefinition.cs" />
+    <Compile Include="Assets\_Project\Scripts\Managers\StageBackgroundController.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\PassiveSkillData.cs" />
+    <Compile Include="Assets\_Project\Scripts\Core\StageSession.cs" />
     <Compile Include="Assets\_Project\Scripts\Tiles\Tile.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -1319,10 +1339,6 @@
       <HintPath>Library\ScriptAssemblies\Unity.Collections.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.InputSystem.ForUI">
-      <HintPath>Library\ScriptAssemblies\Unity.InputSystem.ForUI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Unity.RenderPipelines.GPUDriven.Runtime">
       <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.GPUDriven.Runtime.dll</HintPath>
       <Private>False</Private>
@@ -1399,16 +1415,14 @@
       <HintPath>Library\ScriptAssemblies\Unity.2D.SpriteShape.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.InputSystem">
-      <HintPath>Library\ScriptAssemblies\Unity.InputSystem.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="UnityEditor.UI">
       <HintPath>Library\ScriptAssemblies\UnityEditor.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Unity.InputSystem.ForUI.csproj" />
+    <ProjectReference Include="Unity.InputSystem.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>

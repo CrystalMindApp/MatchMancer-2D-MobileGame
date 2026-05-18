@@ -17,9 +17,13 @@ namespace CrystalMind.MatchMancer
     {
         #region Variables
 
-        [Header("Turn Settings")]
+        [Header("Timing")]
         [SerializeField, Min(0f)] private float actorActionDelay = 1f;
         [SerializeField, Min(0f)] private float nextEnemyRoundDelay = 0.75f;
+        [SerializeField, Min(0f)] private float enemyTurnStartDelay = 0.4f;
+        [SerializeField, Min(0f)] private float enemyAttackDelay = 0.5f;
+        [SerializeField, Min(0f)] private float enemyAbilityDelay = 0.5f;
+        [SerializeField, Min(0f)] private float enemyTurnEndDelay = 0.4f;
         [SerializeField, Min(0)] private int enemySkillCooldownTurns = 2;
 
         [Header("Scene Settings")]
@@ -54,6 +58,7 @@ namespace CrystalMind.MatchMancer
         private int enemySkillTurnsRemaining;
         private bool enemyRoundSequenceActive;
         private bool isEnemyRoundTransitioning;
+        private bool isEnemyActionResolving;
         private EnemyDefinition[] activeEnemyRoundSequence;
         private string currentStageName = "Stage";
 
@@ -76,6 +81,7 @@ namespace CrystalMind.MatchMancer
             !isTurnResolving &&
             !isActiveSkillResolving &&
             !isEnemyRoundTransitioning &&
+            !isEnemyActionResolving &&
             boardManager != null &&
             !boardManager.IsResolving;
         public string TurnStatusText => turnStatusText;
@@ -323,7 +329,7 @@ namespace CrystalMind.MatchMancer
             }
 
             LogSystem("Back to home/menu.");
-            StageSession.SelectedStage = null;
+            StageSession.ClearSelectedStage();
             SceneManager.LoadScene(homeSceneName);
         }
 
@@ -430,27 +436,45 @@ namespace CrystalMind.MatchMancer
 
         private IEnumerator EnemyActionRoutine()
         {
-            string actionName = enemyActor != null ? enemyActor.EnemySkillAnnouncementText : "Enemy Turn";
-            SetTurnStatus("Enemy Turn");
-            gameHUD?.ShowEnemySkillText(actionName);
-            LogEnemy($"Enemy Action: {actionName}");
-            yield return new WaitForSeconds(enemyActor != null ? enemyActor.EnemyActionDelay : 0f);
-            gameHUD?.ClearEnemySkillText();
-
-            bool enemyUsedSkill = EnemyAttack();
-
-            if (playerActor != null && playerActor.CurrentHp <= 0)
+            if (isEnemyActionResolving)
             {
                 yield break;
             }
 
-            enemyUsedSkill |= TryEnemySelfHeal();
-            enemyUsedSkill |= TryEnemyDisruption();
+            isEnemyActionResolving = true;
+            string actionName = enemyActor != null ? enemyActor.EnemySkillAnnouncementText : "Enemy Turn";
+            SetTurnStatus("Enemy Turn");
+            gameHUD?.ShowEnemySkillText(actionName);
+            LogEnemy($"Enemy Action: {actionName}");
+            yield return new WaitForSeconds(enemyTurnStartDelay);
+            gameHUD?.ClearEnemySkillText();
+
+            bool enemyUsedSkill = EnemyAttack();
+            yield return new WaitForSeconds(enemyAttackDelay);
+
+            if (playerActor != null && playerActor.CurrentHp <= 0)
+            {
+                isEnemyActionResolving = false;
+                yield break;
+            }
 
             if (enemyUsedSkill)
             {
-                yield return new WaitForSeconds(actorActionDelay);
+                yield return new WaitForSeconds(enemyAbilityDelay);
             }
+
+            if (TryEnemySelfHeal())
+            {
+                yield return new WaitForSeconds(enemyAbilityDelay);
+            }
+
+            if (TryEnemyDisruption())
+            {
+                yield return new WaitForSeconds(enemyAbilityDelay);
+            }
+
+            yield return new WaitForSeconds(enemyTurnEndDelay);
+            isEnemyActionResolving = false;
         }
 
         private void FinishTurnResolve()
@@ -483,7 +507,7 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            if (isTurnResolving || isActiveSkillResolving || isEnemyRoundTransitioning || boardManager == null || boardManager.IsResolving)
+            if (isTurnResolving || isActiveSkillResolving || isEnemyRoundTransitioning || isEnemyActionResolving || boardManager == null || boardManager.IsResolving)
             {
                 LogSkillWarning("Active Skill unavailable: board or turn is resolving.");
                 return false;
@@ -517,6 +541,7 @@ namespace CrystalMind.MatchMancer
             turnStatusText = "Player Turn";
             enemySkillTurnsRemaining = 0;
             isEnemyRoundTransitioning = false;
+            isEnemyActionResolving = false;
         }
 
         private void ApplyStartingEnemy()
@@ -879,7 +904,9 @@ namespace CrystalMind.MatchMancer
             SetState(GameState.Win);
             enemyActor?.HideVisual();
             isEnemyRoundTransitioning = false;
-            ShowResult(true);
+            int stars = CalculateStageStars();
+            ApplyStageWinProgression(stars);
+            ShowResult(true, stars);
             LogSystem("Final enemy defeated, battle won.");
         }
 
@@ -888,7 +915,7 @@ namespace CrystalMind.MatchMancer
             SetState(GameState.Lose);
             SetBoardInputBlocked(true);
             playerActor?.HideVisual();
-            ShowResult(false);
+            ShowResult(false, 0);
             LogSystem("Game Result: LOSE - Player defeated.");
         }
 
@@ -1056,12 +1083,51 @@ namespace CrystalMind.MatchMancer
             return $"Round {currentEnemyRoundIndex + 1}";
         }
 
-        private void ShowResult(bool isWin)
+        private void ShowResult(bool isWin, int stars)
         {
             SetBoardInputBlocked(true);
             string resultStageName = StageSession.SelectedStage != null ? currentStageName : string.Empty;
-            gameHUD?.ShowResult(isWin, resultStageName);
+            gameHUD?.ShowResult(isWin, resultStageName, stars);
             LogSystem($"Result shown: {(isWin ? "win" : "lose")}");
+        }
+
+        private void ApplyStageWinProgression(int stars)
+        {
+            int stageIndex = StageSession.SelectedStageIndex;
+
+            if (stageIndex < 0)
+            {
+                LogSystem("Stage progression skipped: no selected stage index.");
+                return;
+            }
+
+            StageProgression.MarkStageCleared(stageIndex);
+            StageProgression.SetStageStars(stageIndex, stars);
+            StageProgression.UnlockStage(stageIndex + 1);
+            LogSystem($"Stage cleared: {stageIndex} with {stars} star(s).");
+            StageProgression.LogProgressionState();
+        }
+
+        private int CalculateStageStars()
+        {
+            if (playerActor == null || playerActor.MaxHP <= 0)
+            {
+                return 0;
+            }
+
+            float hpPercent = (float)playerActor.CurrentHP / playerActor.MaxHP;
+
+            if (hpPercent > 0.7f)
+            {
+                return 3;
+            }
+
+            if (hpPercent > 0.3f)
+            {
+                return 2;
+            }
+
+            return hpPercent > 0f ? 1 : 0;
         }
 
         private void LogPlayer(string message)

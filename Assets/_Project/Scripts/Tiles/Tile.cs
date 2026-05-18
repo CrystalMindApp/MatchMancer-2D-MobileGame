@@ -7,7 +7,36 @@ namespace CrystalMind.MatchMancer
         #region Variables
 
         [Header("Selection Settings")]
+        [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField, Range(1f, 1.5f)] private float selectedScaleMultiplier = 1.15f;
+
+        [Header("Normal Sprites")]
+        [SerializeField] private Sprite redTileSprite;
+        [SerializeField] private Sprite greenTileSprite;
+        [SerializeField] private Sprite blueTileSprite;
+        [SerializeField] private Sprite yellowTileSprite;
+        [SerializeField] private Sprite purpleTileSprite;
+
+        [Header("Line Horizontal Sprites")]
+        [SerializeField] private Sprite redLineHorizontalSprite;
+        [SerializeField] private Sprite greenLineHorizontalSprite;
+        [SerializeField] private Sprite blueLineHorizontalSprite;
+        [SerializeField] private Sprite yellowLineHorizontalSprite;
+        [SerializeField] private Sprite purpleLineHorizontalSprite;
+
+        [Header("Line Vertical Sprites")]
+        [SerializeField] private Sprite redLineVerticalSprite;
+        [SerializeField] private Sprite greenLineVerticalSprite;
+        [SerializeField] private Sprite blueLineVerticalSprite;
+        [SerializeField] private Sprite yellowLineVerticalSprite;
+        [SerializeField] private Sprite purpleLineVerticalSprite;
+
+        [Header("Bomb Sprites")]
+        [SerializeField] private Sprite redBombSprite;
+        [SerializeField] private Sprite greenBombSprite;
+        [SerializeField] private Sprite blueBombSprite;
+        [SerializeField] private Sprite yellowBombSprite;
+        [SerializeField] private Sprite purpleBombSprite;
 
         [Header("Debug")]
         [SerializeField] private SpecialTileType specialType;
@@ -16,10 +45,10 @@ namespace CrystalMind.MatchMancer
         private static Sprite circleSprite;
         private static Sprite capsuleHorizontalSprite;
         private static Sprite capsuleVerticalSprite;
-        private SpriteRenderer spriteRenderer;
         private Sprite defaultSprite;
         private BoardManager boardManager;
         private Vector3 defaultScale;
+        private bool hasLoggedMissingSpriteRenderer;
 
         // State
         private int row;
@@ -42,7 +71,11 @@ namespace CrystalMind.MatchMancer
 
         private void Awake()
         {
-            spriteRenderer = GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = GetComponent<SpriteRenderer>();
+            }
+
             defaultScale = transform.localScale;
 
             if (spriteRenderer != null)
@@ -51,14 +84,6 @@ namespace CrystalMind.MatchMancer
             }
 
             EnsureRuntimeSpritesCreated();
-        }
-
-        private void Start()
-        {
-        }
-
-        private void Update()
-        {
         }
 
         #endregion
@@ -73,7 +98,7 @@ namespace CrystalMind.MatchMancer
             specialType = SpecialTileType.None;
 
             UpdateName();
-            ApplyVisual();
+            RefreshVisual();
             SetSelected(false);
         }
 
@@ -93,7 +118,7 @@ namespace CrystalMind.MatchMancer
         {
             specialType = newSpecialType;
             UpdateName();
-            ApplyVisual();
+            RefreshVisual();
         }
 
         public void SetSelected(bool isSelected)
@@ -101,9 +126,10 @@ namespace CrystalMind.MatchMancer
             transform.localScale = isSelected ? defaultScale * selectedScaleMultiplier : defaultScale;
         }
 
-        #endregion
-
-        #region Protected Methods
+        public void RefreshVisual()
+        {
+            ApplyVisual();
+        }
 
         #endregion
 
@@ -113,11 +139,25 @@ namespace CrystalMind.MatchMancer
         {
             if (spriteRenderer == null)
             {
-                Debug.LogError($"{name}: SpriteRenderer is missing.");
+                if (!hasLoggedMissingSpriteRenderer)
+                {
+                    Debug.LogWarning($"{name}: SpriteRenderer is missing.");
+                    hasLoggedMissingSpriteRenderer = true;
+                }
+
                 return;
             }
 
-            spriteRenderer.sprite = GetSpriteBySpecialType(specialType);
+            Sprite mappedSprite = GetMappedSprite(type, specialType);
+
+            if (mappedSprite != null)
+            {
+                spriteRenderer.sprite = mappedSprite;
+                spriteRenderer.color = Color.white;
+                return;
+            }
+
+            spriteRenderer.sprite = GetRuntimeFallbackSpriteBySpecialType(specialType);
             spriteRenderer.color = GetColorByType(type);
         }
 
@@ -128,7 +168,121 @@ namespace CrystalMind.MatchMancer
                 : $"Tile_{row}_{col}_{type}_{specialType}";
         }
 
-        private Sprite GetSpriteBySpecialType(SpecialTileType tileSpecialType)
+        private Sprite GetMappedSprite(TileType tileType, SpecialTileType tileSpecialType)
+        {
+            switch (tileSpecialType)
+            {
+                case SpecialTileType.LineHorizontal:
+                    return GetLineHorizontalSprite(tileType) ?? GetNormalTileSprite(tileType);
+
+                case SpecialTileType.LineVertical:
+                    return GetLineVerticalSprite(tileType) ?? GetNormalTileSprite(tileType);
+
+                case SpecialTileType.Bomb:
+                    return GetBombSprite(tileType) ?? GetNormalTileSprite(tileType);
+
+                default:
+                    return GetNormalTileSprite(tileType);
+            }
+        }
+
+        private Sprite GetNormalTileSprite(TileType tileType)
+        {
+            switch (tileType)
+            {
+                case TileType.Red:
+                    return redTileSprite;
+
+                case TileType.Green:
+                    return greenTileSprite;
+
+                case TileType.Blue:
+                    return blueTileSprite;
+
+                case TileType.Yellow:
+                    return yellowTileSprite;
+
+                case TileType.Purple:
+                    return purpleTileSprite;
+
+                default:
+                    return null;
+            }
+        }
+
+        private Sprite GetLineHorizontalSprite(TileType tileType)
+        {
+            switch (tileType)
+            {
+                case TileType.Red:
+                    return redLineHorizontalSprite;
+
+                case TileType.Green:
+                    return greenLineHorizontalSprite;
+
+                case TileType.Blue:
+                    return blueLineHorizontalSprite;
+
+                case TileType.Yellow:
+                    return yellowLineHorizontalSprite;
+
+                case TileType.Purple:
+                    return purpleLineHorizontalSprite;
+
+                default:
+                    return null;
+            }
+        }
+
+        private Sprite GetLineVerticalSprite(TileType tileType)
+        {
+            switch (tileType)
+            {
+                case TileType.Red:
+                    return redLineVerticalSprite;
+
+                case TileType.Green:
+                    return greenLineVerticalSprite;
+
+                case TileType.Blue:
+                    return blueLineVerticalSprite;
+
+                case TileType.Yellow:
+                    return yellowLineVerticalSprite;
+
+                case TileType.Purple:
+                    return purpleLineVerticalSprite;
+
+                default:
+                    return null;
+            }
+        }
+
+        private Sprite GetBombSprite(TileType tileType)
+        {
+            switch (tileType)
+            {
+                case TileType.Red:
+                    return redBombSprite;
+
+                case TileType.Green:
+                    return greenBombSprite;
+
+                case TileType.Blue:
+                    return blueBombSprite;
+
+                case TileType.Yellow:
+                    return yellowBombSprite;
+
+                case TileType.Purple:
+                    return purpleBombSprite;
+
+                default:
+                    return null;
+            }
+        }
+
+        private Sprite GetRuntimeFallbackSpriteBySpecialType(SpecialTileType tileSpecialType)
         {
             switch (tileSpecialType)
             {

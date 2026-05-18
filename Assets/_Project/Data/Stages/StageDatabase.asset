@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64dfd5e4d6014a67adab4f68d19951c5, type: 3}
+  m_Name: StageDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.StageDatabase
+  stages:
+  - {fileID: 11400000, guid: 4ec8464668f70a143825dfc6a5f812b5, type: 2}
+  - {fileID: 11400000, guid: ff2fa49c11f92a14faa0c3216d9784c3, type: 2}

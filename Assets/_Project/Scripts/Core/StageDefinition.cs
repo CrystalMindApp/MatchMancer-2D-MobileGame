@@ -15,6 +15,7 @@ namespace CrystalMind.MatchMancer
 
         [Header("References")]
         [SerializeField] private EnemyDefinition[] enemyRoundSequence;
+        [SerializeField] private Sprite backgroundSprite;
 
         // Cache
 
@@ -29,6 +30,7 @@ namespace CrystalMind.MatchMancer
         public int RecommendedLevel => recommendedLevel;
         public string Description => description;
         public EnemyDefinition[] EnemyRoundSequence => enemyRoundSequence;
+        public Sprite BackgroundSprite => backgroundSprite;
         public bool HasEnemyRounds => enemyRoundSequence != null && enemyRoundSequence.Length > 0;
 
         #endregion
