@@ -16,6 +16,8 @@ namespace CrystalMind.MatchMancer
         [Header("References")]
         [SerializeField] private EnemyDefinition[] enemyRoundSequence;
         [SerializeField] private Sprite backgroundSprite;
+        [SerializeField] private Sprite foregroundSprite;
+        [SerializeField] private AudioClip stageBgm;
 
         // Cache
 
@@ -31,6 +33,8 @@ namespace CrystalMind.MatchMancer
         public string Description => description;
         public EnemyDefinition[] EnemyRoundSequence => enemyRoundSequence;
         public Sprite BackgroundSprite => backgroundSprite;
+        public Sprite ForegroundSprite => foregroundSprite;
+        public AudioClip StageBgm => stageBgm;
         public bool HasEnemyRounds => enemyRoundSequence != null && enemyRoundSequence.Length > 0;
 
         #endregion

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,6 +29,15 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private AnimationCurve tileSwapCurve;
         [SerializeField] private AnimationCurve tileFallCurve;
 
+        [Header("Board Intro Animation")]
+        [SerializeField] private bool enableBoardIntroAnimation = true;
+        [SerializeField, Min(0f)] private float boardIntroDuration = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float boardIntroStartScale = 0.2f;
+        [SerializeField, Min(0f)] private float boardIntroEndScale = 1f;
+        [SerializeField, Min(1f)] private float boardIntroOvershootScale = 1.08f;
+        [SerializeField, Min(0f)] private float boardIntroStaggerDelay = 0.004f;
+        [SerializeField] private bool boardIntroUseUnscaledTime;
+
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
 
@@ -36,6 +46,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Transform boardRoot;
         [SerializeField] private Camera inputCamera;
         [SerializeField] private GameManager gameManager;
+        [SerializeField] private BoardComboTextController comboTextController;
+        [SerializeField] private SceneAudioLibrary sceneAudioLibrary;
 
         // Cache
         private Tile[,] boardTiles;
@@ -49,7 +61,9 @@ namespace CrystalMind.MatchMancer
         private bool isResolving;
         private bool isSwapping;
         private bool isInputBlocked;
+        private bool spawnBoardTilesAtIntroScale;
         private int lastResolveClearedTileCount;
+        private int currentResolveComboGroupCount;
 
         private struct TileMoveAnimation
         {
@@ -87,8 +101,7 @@ namespace CrystalMind.MatchMancer
 
         private void Start()
         {
-            GenerateBoard();
-            ValidateBoardData();
+            StartCoroutine(InitializeBoardRoutine());
         }
 
         private void Update()
@@ -233,7 +246,7 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            Tile targetTile = normalTiles[Random.Range(0, normalTiles.Count)];
+            Tile targetTile = normalTiles[UnityEngine.Random.Range(0, normalTiles.Count)];
             targetTile.SetSpecialType(SpecialTileType.Bomb);
             Debug.Log($"BoardManager: Passive created Bomb at [{targetTile.Row}, {targetTile.Col}].");
             return true;
@@ -250,7 +263,7 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            Tile targetTile = specialTiles[Random.Range(0, specialTiles.Count)];
+            Tile targetTile = specialTiles[UnityEngine.Random.Range(0, specialTiles.Count)];
             targetTile.SetSpecialType(SpecialTileType.None);
             Debug.Log($"BoardManager: Enemy disruption removed special tile at [{targetTile.Row}, {targetTile.Col}].");
             return true;
@@ -317,7 +330,9 @@ namespace CrystalMind.MatchMancer
             {
                 ClearActiveBoardTiles();
                 boardTiles = new Tile[rows, cols];
+                spawnBoardTilesAtIntroScale = ShouldPlayBoardIntroAnimation();
                 FillInitialBoardWithoutMatches();
+                spawnBoardTilesAtIntroScale = false;
 
                 if (HasAnyValidMove())
                 {
@@ -325,6 +340,7 @@ namespace CrystalMind.MatchMancer
                 }
             }
 
+            spawnBoardTilesAtIntroScale = false;
             Debug.LogWarning($"BoardManager: Failed to generate a starting board with a valid move after {maxInitialBoardGenerationAttempts} attempts. Keeping latest board.");
         }
 
@@ -360,7 +376,7 @@ namespace CrystalMind.MatchMancer
                 return GetRandomTileType();
             }
 
-            return availableTypes[Random.Range(0, availableTypes.Count)];
+            return availableTypes[UnityEngine.Random.Range(0, availableTypes.Count)];
         }
 
         private bool WouldCreateInitialMatch(int row, int col, TileType tileType)
@@ -472,8 +488,17 @@ namespace CrystalMind.MatchMancer
             ClearSelection();
             GenerateBoard();
             ValidateBoardData();
+            yield return StartCoroutine(PlayBoardIntroAnimationRoutine());
             isResolving = false;
-            yield break;
+        }
+
+        private IEnumerator InitializeBoardRoutine()
+        {
+            isInputBlocked = true;
+            GenerateBoard();
+            ValidateBoardData();
+            yield return StartCoroutine(PlayBoardIntroAnimationRoutine());
+            isInputBlocked = false;
         }
 
         private IEnumerator TrySwapRoutine(Tile firstTile, Tile secondTile)
@@ -517,6 +542,7 @@ namespace CrystalMind.MatchMancer
             if (resetClearedCount)
             {
                 lastResolveClearedTileCount = 0;
+                ResetComboFeedback();
             }
 
             for (int loopCount = 0; loopCount < maxResolveLoops; loopCount++)
@@ -525,13 +551,23 @@ namespace CrystalMind.MatchMancer
 
                 if (matchGroups.Count == 0)
                 {
+                    HideComboFeedback();
                     ValidateBoardData();
                     yield break;
                 }
 
-                ClearStepResult clearResult = countClearedTiles
-                    ? ProcessMatchGroups(matchGroups)
-                    : ClearTilesAndGetResult(GetTilesFromMatchGroups(matchGroups));
+                UpdateComboFeedback(matchGroups.Count);
+
+                ClearStepResult clearResult = new ClearStepResult();
+
+                if (countClearedTiles)
+                {
+                    yield return StartCoroutine(ProcessMatchGroupsRoutine(matchGroups, result => clearResult = result));
+                }
+                else
+                {
+                    yield return StartCoroutine(ClearTilesAndGetResultRoutine(GetTilesFromMatchGroups(matchGroups), result => clearResult = result));
+                }
 
                 if (countClearedTiles)
                 {
@@ -550,6 +586,7 @@ namespace CrystalMind.MatchMancer
             }
 
             Debug.LogWarning($"BoardManager: Resolve loop stopped by max limit ({maxResolveLoops}).");
+            HideComboFeedback();
             ValidateBoardData();
         }
 
@@ -557,12 +594,14 @@ namespace CrystalMind.MatchMancer
         {
             isResolving = true;
             ClearSelection();
+            ResetComboFeedback();
 
             List<Tile> tilesToClear = GetActiveTiles()
                 .Where(tile => tile != null && tile.Type == targetType)
                 .ToList();
 
-            ClearStepResult clearResult = ClearTilesAndGetResult(tilesToClear);
+            ClearStepResult clearResult = new ClearStepResult();
+            yield return StartCoroutine(ClearTilesAndGetResultRoutine(tilesToClear, result => clearResult = result));
             lastResolveClearedTileCount = clearResult.ClearedCount;
             gameManager?.OnTilesCleared(clearResult.ClearedCount);
             gameManager?.OnTileColorsCleared(clearResult.ColorCounts, 1);
@@ -576,6 +615,7 @@ namespace CrystalMind.MatchMancer
 
             yield return StartCoroutine(ResolveBoardRoutine(true, false, 1));
 
+            HideComboFeedback();
             isResolving = false;
             gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
         }
@@ -688,6 +728,33 @@ namespace CrystalMind.MatchMancer
             selectedTile = null;
         }
 
+        private void ResetComboFeedback()
+        {
+            currentResolveComboGroupCount = 0;
+            comboTextController?.HideImmediate();
+        }
+
+        private void UpdateComboFeedback(int matchGroupCount)
+        {
+            if (matchGroupCount <= 0)
+            {
+                return;
+            }
+
+            currentResolveComboGroupCount += matchGroupCount;
+
+            if (currentResolveComboGroupCount >= 2)
+            {
+                comboTextController?.ShowCombo(currentResolveComboGroupCount);
+            }
+        }
+
+        private void HideComboFeedback()
+        {
+            comboTextController?.HideCombo();
+            currentResolveComboGroupCount = 0;
+        }
+
         private bool AreAdjacent(Tile firstTile, Tile secondTile)
         {
             if (firstTile == null || secondTile == null)
@@ -701,7 +768,7 @@ namespace CrystalMind.MatchMancer
             return rowDistance + colDistance == 1;
         }
 
-        private ClearStepResult ProcessMatchGroups(List<MatchGroup> matchGroups)
+        private IEnumerator ProcessMatchGroupsRoutine(List<MatchGroup> matchGroups, Action<ClearStepResult> onComplete)
         {
             HashSet<Tile> tilesToClear = new HashSet<Tile>();
             HashSet<Tile> activatedSpecialTiles = new HashSet<Tile>();
@@ -736,10 +803,11 @@ namespace CrystalMind.MatchMancer
 
                 SpecialTileType specialType = ClassifySpecialTileType(group);
                 specialTile.SetSpecialType(specialType);
+                PlaySpecialTileSpawnSfx();
                 tilesToClear.Remove(specialTile);
             }
 
-            return ClearTilesAndGetResult(new List<Tile>(tilesToClear));
+            yield return StartCoroutine(ClearTilesAndGetResultRoutine(new List<Tile>(tilesToClear), onComplete));
         }
 
         private List<Tile> GetTilesFromMatchGroups(List<MatchGroup> matchGroups)
@@ -938,19 +1006,16 @@ namespace CrystalMind.MatchMancer
             ActivateSpecialTileIfNeeded(tile, tilesToClear, activatedSpecialTiles);
         }
 
-        private int ClearTiles(List<Tile> tilesToClear)
-        {
-            return ClearTilesAndGetResult(tilesToClear).ClearedCount;
-        }
-
-        private ClearStepResult ClearTilesAndGetResult(List<Tile> tilesToClear)
+        private IEnumerator ClearTilesAndGetResultRoutine(List<Tile> tilesToClear, Action<ClearStepResult> onComplete)
         {
             if (tilesToClear == null || tilesToClear.Count == 0)
             {
-                return new ClearStepResult();
+                onComplete?.Invoke(new ClearStepResult());
+                yield break;
             }
 
             ClearStepResult result = new ClearStepResult();
+            List<Tile> validTilesToRelease = new List<Tile>();
 
             foreach (Tile tile in tilesToClear)
             {
@@ -974,10 +1039,43 @@ namespace CrystalMind.MatchMancer
 
                 boardTiles[row, col] = null;
                 result.Add(tile.Type);
-                ReleaseTileToPool(tile);
+                validTilesToRelease.Add(tile);
             }
 
-            return result;
+            onComplete?.Invoke(result);
+            PlayMatchClearSfx(result.ClearedCount);
+            yield return StartCoroutine(PlayClearVisualsRoutine(validTilesToRelease));
+
+            foreach (Tile tile in validTilesToRelease)
+            {
+                if (tile != null)
+                {
+                    ReleaseTileToPool(tile);
+                }
+            }
+        }
+
+        private IEnumerator PlayClearVisualsRoutine(List<Tile> tilesToClear)
+        {
+            if (tilesToClear == null || tilesToClear.Count == 0)
+            {
+                yield break;
+            }
+
+            List<Coroutine> runningAnimations = new List<Coroutine>();
+
+            foreach (Tile tile in tilesToClear)
+            {
+                if (tile != null)
+                {
+                    runningAnimations.Add(StartCoroutine(tile.PlayDestroyVisual()));
+                }
+            }
+
+            foreach (Coroutine animation in runningAnimations)
+            {
+                yield return animation;
+            }
         }
 
         private void ClearActiveBoardTiles()
@@ -1002,6 +1100,26 @@ namespace CrystalMind.MatchMancer
                     ReleaseTileToPool(tile);
                 }
             }
+        }
+
+        private void PlayMatchClearSfx(int clearedCount)
+        {
+            if (clearedCount <= 0)
+            {
+                return;
+            }
+
+            GetSceneAudioLibrary()?.PlayMatchClear();
+        }
+
+        private void PlaySpecialTileSpawnSfx()
+        {
+            GetSceneAudioLibrary()?.PlaySpecialTileSpawn();
+        }
+
+        private SceneAudioLibrary GetSceneAudioLibrary()
+        {
+            return sceneAudioLibrary != null ? sceneAudioLibrary : SceneAudioLibrary.Current;
         }
 
         private IEnumerator ApplyGravityRoutine()
@@ -1074,6 +1192,50 @@ namespace CrystalMind.MatchMancer
             yield return StartCoroutine(AnimateTileMoves(moves, tileFallCurve));
         }
 
+        private IEnumerator PlayBoardIntroAnimationRoutine()
+        {
+            if (!ShouldPlayBoardIntroAnimation())
+            {
+                yield break;
+            }
+
+            List<Tile> activeTiles = GetActiveTiles();
+            if (activeTiles.Count == 0)
+            {
+                yield break;
+            }
+
+            bool wasInputBlocked = isInputBlocked;
+            isInputBlocked = true;
+
+            List<Coroutine> runningAnimations = new List<Coroutine>();
+
+            for (int i = 0; i < activeTiles.Count; i++)
+            {
+                Tile tile = activeTiles[i];
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                float delay = boardIntroStaggerDelay * i;
+                runningAnimations.Add(StartCoroutine(tile.PlayIntroVisual(
+                    boardIntroDuration,
+                    boardIntroStartScale,
+                    boardIntroOvershootScale,
+                    boardIntroEndScale,
+                    delay,
+                    boardIntroUseUnscaledTime)));
+            }
+
+            foreach (Coroutine animation in runningAnimations)
+            {
+                yield return animation;
+            }
+
+            isInputBlocked = wasInputBlocked;
+        }
+
         private Tile GetTileFromPool(int row, int col, TileType type)
         {
             return GetTileFromPool(row, col, type, GetTileLocalPosition(row, col));
@@ -1099,7 +1261,18 @@ namespace CrystalMind.MatchMancer
             }
 
             tile.Init(row, col, type);
+
+            if (spawnBoardTilesAtIntroScale)
+            {
+                tile.SetVisualScaleMultiplier(boardIntroStartScale);
+            }
+
             return tile;
+        }
+
+        private bool ShouldPlayBoardIntroAnimation()
+        {
+            return enableBoardIntroAnimation && boardIntroDuration > 0f;
         }
 
         private void ReleaseTileToPool(Tile tile)
@@ -1112,7 +1285,7 @@ namespace CrystalMind.MatchMancer
         private TileType GetRandomTileType()
         {
             int typeCount = System.Enum.GetValues(typeof(TileType)).Length;
-            int randomIndex = Random.Range(0, typeCount);
+            int randomIndex = UnityEngine.Random.Range(0, typeCount);
 
             return (TileType)randomIndex;
         }

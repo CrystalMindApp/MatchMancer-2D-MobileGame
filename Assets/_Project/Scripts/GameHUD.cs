@@ -7,9 +7,6 @@ public class GameHUD : MonoBehaviour
 {
     #region Variables
 
-    [Header("Settings")]
-    [SerializeField] private KeyCode settingsToggleKey = KeyCode.Escape;
-
     [Header("References")]
     [SerializeField] private GameManager gameManager;
     [SerializeField] private TMP_Text playerHpText;
@@ -25,7 +22,6 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private TMP_Text resultTitleText;
     [SerializeField] private TMP_Text resultDescriptionText;
     [SerializeField] private GameObject[] resultStarObjects;
-    [SerializeField] private GameObject settingsPanel;
     [SerializeField] private Image playerHealthFillImage;
     [SerializeField] private Image enemyHealthFillImage;
     [SerializeField] private Image passiveChargeFillImage;
@@ -34,15 +30,8 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private Button restartButton;
     [SerializeField] private Button retryButton;
     [SerializeField] private Button backToHomeButton;
-    [SerializeField] private Button settingsToggleButton;
-    [SerializeField] private Button closeSettingsButton;
-    [SerializeField] private Button settingsRestartButton;
-    [SerializeField] private Button settingsBackToHomeButton;
-    [SerializeField] private Button muteButton;
-    [SerializeField] private Slider masterVolumeSlider;
-    [SerializeField] private Slider bgmVolumeSlider;
-    [SerializeField] private Slider sfxVolumeSlider;
     [SerializeField] private SceneAudioLibrary sceneAudioLibrary;
+    [SerializeField] private UIPanelScaleTransition resultPanelTransition;
 
     // State
     private bool hasSearchedSceneAudioLibrary;
@@ -68,53 +57,7 @@ public class GameHUD : MonoBehaviour
             backToHomeButton.onClick.AddListener(HandleBackToHomeClicked);
         }
 
-        if (settingsToggleButton != null)
-        {
-            settingsToggleButton.onClick.AddListener(HandleSettingsToggled);
-        }
-
-        if (closeSettingsButton != null)
-        {
-            closeSettingsButton.onClick.AddListener(HandleSettingsClosed);
-        }
-
-        if (settingsRestartButton != null)
-        {
-            settingsRestartButton.onClick.AddListener(HandleRestartClicked);
-        }
-
-        if (settingsBackToHomeButton != null)
-        {
-            settingsBackToHomeButton.onClick.AddListener(HandleBackToHomeClicked);
-        }
-
-        if (muteButton != null)
-        {
-            muteButton.onClick.AddListener(HandleMuteClicked);
-        }
-
-        if (masterVolumeSlider != null)
-        {
-            masterVolumeSlider.onValueChanged.AddListener(HandleMasterVolumeChanged);
-        }
-
-        if (bgmVolumeSlider != null)
-        {
-            bgmVolumeSlider.onValueChanged.AddListener(HandleBgmVolumeChanged);
-        }
-
-        if (sfxVolumeSlider != null)
-        {
-            sfxVolumeSlider.onValueChanged.AddListener(HandleSfxVolumeChanged);
-        }
-
-        SetSettingsPanelVisible(false);
         HideResult();
-    }
-
-    private void Start()
-    {
-        InitializeAudioControls();
     }
 
     private void OnDestroy()
@@ -134,54 +77,10 @@ public class GameHUD : MonoBehaviour
             backToHomeButton.onClick.RemoveListener(HandleBackToHomeClicked);
         }
 
-        if (settingsToggleButton != null)
-        {
-            settingsToggleButton.onClick.RemoveListener(HandleSettingsToggled);
-        }
-
-        if (closeSettingsButton != null)
-        {
-            closeSettingsButton.onClick.RemoveListener(HandleSettingsClosed);
-        }
-
-        if (settingsRestartButton != null)
-        {
-            settingsRestartButton.onClick.RemoveListener(HandleRestartClicked);
-        }
-
-        if (settingsBackToHomeButton != null)
-        {
-            settingsBackToHomeButton.onClick.RemoveListener(HandleBackToHomeClicked);
-        }
-
-        if (muteButton != null)
-        {
-            muteButton.onClick.RemoveListener(HandleMuteClicked);
-        }
-
-        if (masterVolumeSlider != null)
-        {
-            masterVolumeSlider.onValueChanged.RemoveListener(HandleMasterVolumeChanged);
-        }
-
-        if (bgmVolumeSlider != null)
-        {
-            bgmVolumeSlider.onValueChanged.RemoveListener(HandleBgmVolumeChanged);
-        }
-
-        if (sfxVolumeSlider != null)
-        {
-            sfxVolumeSlider.onValueChanged.RemoveListener(HandleSfxVolumeChanged);
-        }
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(settingsToggleKey) && !IsResultPanelVisible())
-        {
-            HandleSettingsToggled();
-        }
-
         Refresh();
     }
 
@@ -211,18 +110,35 @@ public class GameHUD : MonoBehaviour
 
     public void ShowResult(bool isWin, string stageName, int stars)
     {
+        SetText(resultTitleText, isWin ? "Stage Clear" : "Defeated");
+        SetText(resultDescriptionText, GetResultDescription(isWin, stageName));
+        SetResultStars(isWin ? stars : 0);
+        SetResultButtonsInteractable(false);
+        PlayResultSfx(isWin);
+
         if (resultPanel != null)
         {
             resultPanel.SetActive(true);
         }
 
-        SetText(resultTitleText, isWin ? "Stage Clear" : "Defeated");
-        SetText(resultDescriptionText, GetResultDescription(isWin, stageName));
-        SetResultStars(isWin ? stars : 0);
+        if (resultPanelTransition != null)
+        {
+            resultPanelTransition.Show(() => SetResultButtonsInteractable(true));
+            return;
+        }
+
+        SetResultButtonsInteractable(true);
     }
 
     public void HideResult()
     {
+        SetResultButtonsInteractable(false);
+
+        if (resultPanelTransition != null)
+        {
+            resultPanelTransition.HideImmediate();
+        }
+
         if (resultPanel != null)
         {
             resultPanel.SetActive(false);
@@ -306,86 +222,40 @@ public class GameHUD : MonoBehaviour
     {
         PlayButtonClickSfx();
 
-        if (gameManager != null)
-        {
-            gameManager.RetryCurrentStage();
-        }
+        HideResultThen(() => gameManager?.RetryCurrentStage());
     }
 
     private void HandleBackToHomeClicked()
     {
         PlayButtonClickSfx();
 
-        if (gameManager != null)
+        HideResultThen(() => gameManager?.BackToHome());
+    }
+
+    private void HideResultThen(System.Action onComplete)
+    {
+        SetResultButtonsInteractable(false);
+
+        if (resultPanelTransition != null)
         {
-            gameManager.BackToHome();
-        }
-    }
+            resultPanelTransition.Hide(() =>
+            {
+                if (resultPanel != null)
+                {
+                    resultPanel.SetActive(false);
+                }
 
-    private void HandleSettingsToggled()
-    {
-        PlayButtonClickSfx();
-        SetSettingsPanelVisible(settingsPanel == null || !settingsPanel.activeSelf);
-    }
-
-    private void HandleSettingsClosed()
-    {
-        PlayButtonClickSfx();
-        SetSettingsPanelVisible(false);
-    }
-
-    private void HandleMuteClicked()
-    {
-        PlayButtonClickSfx();
-
-        if (AudioManager.Instance == null)
-        {
-            Debug.LogWarning("GameHUD: AudioManager is missing.");
+                onComplete?.Invoke();
+            });
             return;
         }
 
-        AudioManager.Instance.ToggleMute();
-    }
-
-    private void HandleMasterVolumeChanged(float value)
-    {
-        AudioManager.Instance?.SetMasterVolume(value);
-    }
-
-    private void HandleBgmVolumeChanged(float value)
-    {
-        AudioManager.Instance?.SetBgmVolume(value);
-    }
-
-    private void HandleSfxVolumeChanged(float value)
-    {
-        AudioManager.Instance?.SetSfxVolume(value);
-    }
-
-    private void SetSettingsPanelVisible(bool visible)
-    {
-        if (settingsPanel != null)
+        if (resultPanel != null)
         {
-            settingsPanel.SetActive(visible);
-        }
-    }
-
-    private bool IsResultPanelVisible()
-    {
-        return resultPanel != null && resultPanel.activeSelf;
-    }
-
-    private void InitializeAudioControls()
-    {
-        if (AudioManager.Instance == null)
-        {
-            Debug.LogWarning("GameHUD: AudioManager is missing.");
-            return;
+            resultPanel.SetActive(false);
         }
 
-        SetSliderValueWithoutNotify(masterVolumeSlider, AudioManager.Instance.GetMasterVolume());
-        SetSliderValueWithoutNotify(bgmVolumeSlider, AudioManager.Instance.GetBgmVolume());
-        SetSliderValueWithoutNotify(sfxVolumeSlider, AudioManager.Instance.GetSfxVolume());
+        onComplete?.Invoke();
     }
 
     private string GetResultDescription(bool isWin, string stageName)
@@ -416,19 +286,24 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    private void SetResultButtonsInteractable(bool interactable)
+    {
+        if (retryButton != null)
+        {
+            retryButton.interactable = interactable;
+        }
+
+        if (backToHomeButton != null)
+        {
+            backToHomeButton.interactable = interactable;
+        }
+    }
+
     private void SetImageFill(Image image, float fillAmount)
     {
         if (image != null)
         {
             image.fillAmount = Mathf.Clamp01(fillAmount);
-        }
-    }
-
-    private void SetSliderValueWithoutNotify(Slider slider, float value)
-    {
-        if (slider != null)
-        {
-            slider.SetValueWithoutNotify(Mathf.Clamp01(value));
         }
     }
 
@@ -444,10 +319,28 @@ public class GameHUD : MonoBehaviour
         audioLibrary.PlayButtonClick();
     }
 
+    private void PlayResultSfx(bool isWin)
+    {
+        SceneAudioLibrary audioLibrary = GetSceneAudioLibrary();
+
+        if (audioLibrary == null)
+        {
+            return;
+        }
+
+        audioLibrary.PlayResult(isWin);
+    }
+
     private SceneAudioLibrary GetSceneAudioLibrary()
     {
         if (sceneAudioLibrary != null)
         {
+            return sceneAudioLibrary;
+        }
+
+        if (SceneAudioLibrary.Current != null)
+        {
+            sceneAudioLibrary = SceneAudioLibrary.Current;
             return sceneAudioLibrary;
         }
 

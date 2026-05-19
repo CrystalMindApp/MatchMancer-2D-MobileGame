@@ -1,7 +1,9 @@
+using System.Collections;
 using UnityEngine;
 
 namespace CrystalMind.MatchMancer
 {
+    [RequireComponent(typeof(TileVisualController))]
     public class Tile : MonoBehaviour
     {
         #region Variables
@@ -41,6 +43,9 @@ namespace CrystalMind.MatchMancer
         [Header("Debug")]
         [SerializeField] private SpecialTileType specialType;
 
+        [Header("References")]
+        [SerializeField] private TileVisualController visualController;
+
         // Cache
         private static Sprite circleSprite;
         private static Sprite capsuleHorizontalSprite;
@@ -76,6 +81,18 @@ namespace CrystalMind.MatchMancer
                 spriteRenderer = GetComponent<SpriteRenderer>();
             }
 
+            if (visualController == null)
+            {
+                visualController = GetComponent<TileVisualController>();
+            }
+
+            if (visualController == null)
+            {
+                visualController = gameObject.AddComponent<TileVisualController>();
+            }
+
+            visualController.SetTargetRenderer(spriteRenderer);
+
             defaultScale = transform.localScale;
 
             if (spriteRenderer != null)
@@ -97,8 +114,10 @@ namespace CrystalMind.MatchMancer
             type = newType;
             specialType = SpecialTileType.None;
 
+            visualController?.ResetVisualState();
             UpdateName();
             RefreshVisual();
+            visualController?.SetSpecialState(false, false);
             SetSelected(false);
         }
 
@@ -116,19 +135,59 @@ namespace CrystalMind.MatchMancer
 
         public void SetSpecialType(SpecialTileType newSpecialType)
         {
+            bool wasSpecial = IsSpecial;
             specialType = newSpecialType;
             UpdateName();
             RefreshVisual();
+            visualController?.SetSpecialState(IsSpecial, !wasSpecial && IsSpecial);
         }
 
         public void SetSelected(bool isSelected)
         {
+            if (visualController != null)
+            {
+                visualController.SetSelected(isSelected);
+                return;
+            }
+
             transform.localScale = isSelected ? defaultScale * selectedScaleMultiplier : defaultScale;
         }
 
         public void RefreshVisual()
         {
             ApplyVisual();
+            visualController?.CaptureCurrentRendererColor();
+        }
+
+        public IEnumerator PlayDestroyVisual()
+        {
+            if (visualController == null)
+            {
+                yield break;
+            }
+
+            yield return visualController.PlayDestroyAnimation();
+        }
+
+        public IEnumerator PlayIntroVisual(float duration, float startScale, float overshootScale, float endScale, float startDelay, bool useUnscaledTime)
+        {
+            if (visualController == null)
+            {
+                yield break;
+            }
+
+            yield return visualController.PlayIntroAnimation(duration, startScale, overshootScale, endScale, startDelay, useUnscaledTime);
+        }
+
+        public void SetVisualScaleMultiplier(float scaleMultiplier)
+        {
+            if (visualController != null)
+            {
+                visualController.SetScaleMultiplier(scaleMultiplier);
+                return;
+            }
+
+            transform.localScale = defaultScale * Mathf.Max(0f, scaleMultiplier);
         }
 
         #endregion

@@ -10,6 +10,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private CharacterData characterData;
         [SerializeField] private PlayerCombatProfile combatProfile;
         [SerializeField] private ActorSpriteSwapController visualController;
+        [SerializeField] private ActorTurnScaleHighlighter turnScaleHighlighter;
 
         // State
         private int currentHp;
@@ -49,6 +50,18 @@ namespace CrystalMind.MatchMancer
         public int CurrentTurnSpeedBonus => currentTurnSpeedBonus;
         public bool PassiveReady => passiveReady;
         public bool PassiveTriggeredThisTurn => passiveTriggeredThisTurn;
+
+        #endregion
+
+        #region Unity Methods
+
+        private void Awake()
+        {
+            if (turnScaleHighlighter == null)
+            {
+                turnScaleHighlighter = GetComponentInChildren<ActorTurnScaleHighlighter>();
+            }
+        }
 
         #endregion
 
@@ -234,6 +247,17 @@ namespace CrystalMind.MatchMancer
         public void ResetVisual()
         {
             visualController?.ResetToIdle();
+            turnScaleHighlighter?.ResetHighlight();
+        }
+
+        public void HighlightTurnVisual()
+        {
+            turnScaleHighlighter?.Highlight();
+        }
+
+        public void ClearTurnHighlightVisual()
+        {
+            turnScaleHighlighter?.ClearHighlight();
         }
 
         #endregion

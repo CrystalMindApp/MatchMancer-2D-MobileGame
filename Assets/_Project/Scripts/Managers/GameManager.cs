@@ -317,6 +317,7 @@ namespace CrystalMind.MatchMancer
         public void RetryCurrentStage()
         {
             LogSystem("Retry current stage.");
+            StageSession.ClearPendingStageClearVisual();
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
 
@@ -358,6 +359,7 @@ namespace CrystalMind.MatchMancer
             }
 
             playerActor.PlaySkillVisual();
+            HighlightPlayerTurn();
 
             bool activated = activeSkill.SkillEffectType == ActiveSkillEffectType.ClearTileColor &&
                 boardManager != null &&
@@ -367,6 +369,7 @@ namespace CrystalMind.MatchMancer
             {
                 LogSkillWarning($"Active Skill failed: no valid {targetType} tiles to clear.");
                 isActiveSkillResolving = false;
+                ClearTurnHighlight();
                 SetBoardInputBlocked(false);
             }
         }
@@ -444,6 +447,7 @@ namespace CrystalMind.MatchMancer
             isEnemyActionResolving = true;
             string actionName = enemyActor != null ? enemyActor.EnemySkillAnnouncementText : "Enemy Turn";
             SetTurnStatus("Enemy Turn");
+            HighlightEnemyTurn();
             gameHUD?.ShowEnemySkillText(actionName);
             LogEnemy($"Enemy Action: {actionName}");
             yield return new WaitForSeconds(enemyTurnStartDelay);
@@ -454,6 +458,7 @@ namespace CrystalMind.MatchMancer
 
             if (playerActor != null && playerActor.CurrentHp <= 0)
             {
+                ClearTurnHighlight();
                 isEnemyActionResolving = false;
                 yield break;
             }
@@ -474,6 +479,7 @@ namespace CrystalMind.MatchMancer
             }
 
             yield return new WaitForSeconds(enemyTurnEndDelay);
+            ClearTurnHighlight();
             isEnemyActionResolving = false;
         }
 
@@ -485,6 +491,7 @@ namespace CrystalMind.MatchMancer
             playerActor?.ResetTurnSpeedBonus();
             gameHUD?.ClearPlayerSkillText();
             gameHUD?.ClearEnemySkillText();
+            ClearTurnHighlight();
 
             if (IsPlaying)
             {
@@ -681,6 +688,7 @@ namespace CrystalMind.MatchMancer
         private void ApplyPlayerDamage(int clearedTileCount)
         {
             int damage = CalculatePlayerDamage(clearedTileCount);
+            HighlightPlayerTurn();
             playerActor.PlayAttackVisual();
             enemyActor.TakeDamage(damage);
 
@@ -724,6 +732,7 @@ namespace CrystalMind.MatchMancer
         private bool EnemyAttack()
         {
             int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
+            HighlightEnemyTurn();
             enemyActor.PlayAttackVisual();
             bool usedSkill = false;
 
@@ -809,6 +818,7 @@ namespace CrystalMind.MatchMancer
         {
             playerActor?.ResetVisual();
             enemyActor?.ResetVisual();
+            ClearTurnHighlight();
         }
 
         private void StartEnemySkillCooldown()
@@ -843,6 +853,24 @@ namespace CrystalMind.MatchMancer
         {
             turnStatusText = status;
             LogSystem(status);
+        }
+
+        private void HighlightPlayerTurn()
+        {
+            playerActor?.HighlightTurnVisual();
+            enemyActor?.ClearTurnHighlightVisual();
+        }
+
+        private void HighlightEnemyTurn()
+        {
+            enemyActor?.HighlightTurnVisual();
+            playerActor?.ClearTurnHighlightVisual();
+        }
+
+        private void ClearTurnHighlight()
+        {
+            playerActor?.ClearTurnHighlightVisual();
+            enemyActor?.ClearTurnHighlightVisual();
         }
 
         private void SetBoardInputBlocked(bool blocked)
@@ -1101,9 +1129,14 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
+            int previousStars = StageProgression.GetStageStars(stageIndex);
+            int nextStageIndex = stageIndex + 1;
+            bool nextStageWasLocked = !StageProgression.IsStageUnlocked(nextStageIndex);
+
             StageProgression.MarkStageCleared(stageIndex);
             StageProgression.SetStageStars(stageIndex, stars);
-            StageProgression.UnlockStage(stageIndex + 1);
+            StageProgression.UnlockStage(nextStageIndex);
+            StageSession.SetPendingStageClearVisual(stageIndex, previousStars, stars, stars > previousStars, nextStageWasLocked);
             LogSystem($"Stage cleared: {stageIndex} with {stars} star(s).");
             StageProgression.LogProgressionState();
         }

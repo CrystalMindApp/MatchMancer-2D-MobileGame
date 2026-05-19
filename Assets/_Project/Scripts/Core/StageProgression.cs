@@ -96,6 +96,7 @@ namespace CrystalMind.MatchMancer
             clearedStages.Clear();
             stageStars.Clear();
             unlockedStages.Add(0);
+            StageSession.ClearPendingStageClearVisual();
             Debug.Log("Stage progression reset");
             LogProgressionState();
         }

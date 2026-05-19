@@ -8,9 +8,11 @@ namespace CrystalMind.MatchMancer
 
         [Header("Settings")]
         [SerializeField] private Sprite fallbackBackground;
+        [SerializeField] private Sprite fallbackForeground;
 
         [Header("References")]
         [SerializeField] private SpriteRenderer backgroundRenderer;
+        [SerializeField] private SpriteRenderer foregroundRenderer;
         [SerializeField] private StageDatabase stageDatabase;
 
         // Cache
@@ -21,9 +23,11 @@ namespace CrystalMind.MatchMancer
 
         #region Unity Methods
 
-        private void Start()
+        private System.Collections.IEnumerator Start()
         {
             ApplySelectedStageBackground();
+            yield return null;
+            ApplySelectedStageBgm();
         }
 
         #endregion
@@ -32,28 +36,44 @@ namespace CrystalMind.MatchMancer
 
         public void ApplySelectedStageBackground()
         {
-            if (backgroundRenderer == null)
+            StageDefinition selectedStage = GetSelectedStage();
+
+            if (backgroundRenderer != null)
+            {
+                ApplySprite(backgroundRenderer, GetSelectedStageBackground(selectedStage), false);
+            }
+            else
             {
                 Debug.LogWarning("StageBackgroundController: Background renderer is missing.");
+            }
+
+            ApplySprite(foregroundRenderer, GetSelectedStageForeground(selectedStage), true);
+        }
+
+        public void ApplySelectedStageBgm()
+        {
+            StageDefinition selectedStage = GetSelectedStage();
+
+            if (selectedStage == null || selectedStage.StageBgm == null)
+            {
                 return;
             }
 
-            Sprite selectedBackground = GetSelectedStageBackground();
-
-            if (selectedBackground != null)
+            if (AudioManager.Instance == null)
             {
-                backgroundRenderer.sprite = selectedBackground;
+                Debug.LogWarning("StageBackgroundController: AudioManager is missing. Stage BGM was not applied.");
+                return;
             }
+
+            AudioManager.Instance.PlayBgm(selectedStage.StageBgm);
         }
 
         #endregion
 
         #region Private Methods
 
-        private Sprite GetSelectedStageBackground()
+        private Sprite GetSelectedStageBackground(StageDefinition selectedStage)
         {
-            StageDefinition selectedStage = GetSelectedStage();
-
             if (selectedStage != null && selectedStage.BackgroundSprite != null)
             {
                 return selectedStage.BackgroundSprite;
@@ -65,6 +85,31 @@ namespace CrystalMind.MatchMancer
             }
 
             return fallbackBackground;
+        }
+
+        private Sprite GetSelectedStageForeground(StageDefinition selectedStage)
+        {
+            if (selectedStage != null && selectedStage.ForegroundSprite != null)
+            {
+                return selectedStage.ForegroundSprite;
+            }
+
+            return fallbackForeground;
+        }
+
+        private void ApplySprite(SpriteRenderer targetRenderer, Sprite sprite, bool hideWhenMissing)
+        {
+            if (targetRenderer == null)
+            {
+                return;
+            }
+
+            targetRenderer.sprite = sprite;
+
+            if (hideWhenMissing)
+            {
+                targetRenderer.enabled = sprite != null;
+            }
         }
 
         private StageDefinition GetSelectedStage()

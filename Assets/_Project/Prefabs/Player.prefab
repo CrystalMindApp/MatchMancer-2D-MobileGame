@@ -82,7 +82,7 @@ SpriteRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -3833309531859664155, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.8235294, g: 0.8235294, b: 0.8235294, a: 1}
   m_FlipX: 1
   m_FlipY: 0
   m_DrawMode: 0
@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 5023838630691406537}
   - component: {fileID: 1734542040541320960}
   - component: {fileID: 6462071549278434532}
+  - component: {fileID: 9088315572390602717}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -140,6 +141,7 @@ MonoBehaviour:
   characterData: {fileID: 11400000, guid: 70bc6919af7b0af4f9bd6592fd1931a2, type: 2}
   combatProfile: {fileID: 11400000, guid: 927b1c1b6e87f6a41a0b79ecaaaac1f7, type: 2}
   visualController: {fileID: 6462071549278434532}
+  turnScaleHighlighter: {fileID: 9088315572390602717}
 --- !u!114 &6462071549278434532
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -160,3 +162,20 @@ MonoBehaviour:
   attackSprite: {fileID: 5448847150523680536, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
   getHitSprite: {fileID: -8909950900740362491, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
   skillSprite: {fileID: 5783493141096501801, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
+--- !u!114 &9088315572390602717
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5680503570939686559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7507f1485b057004bbf8ebaa8f5ef150, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.ActorTurnScaleHighlighter
+  activeTurnScale: 1.08
+  activeTurnScaleDuration: 0.12
+  activeTurnReturnDuration: 0.12
+  useUnscaledTime: 0
+  targetTransform: {fileID: 1714782792228414854}

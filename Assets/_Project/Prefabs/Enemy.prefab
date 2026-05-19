@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 8837517216284412230}
   - component: {fileID: 6879322576576725872}
   m_Layer: 0
-  m_Name: Circle
+  m_Name: Body
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -82,7 +82,7 @@ SpriteRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -3661975606725021975, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.8235294, g: 0.8235294, b: 0.8235294, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 1444464120696994647}
   - component: {fileID: 906839158144052460}
   - component: {fileID: 4426346131015675275}
+  - component: {fileID: 3977981518016006638}
   m_Layer: 0
   m_Name: Enemy
   m_TagString: Untagged
@@ -140,6 +141,7 @@ MonoBehaviour:
   characterData: {fileID: 11400000, guid: 3b87e2e812dd4c2468899386c8912bc0, type: 2}
   combatProfile: {fileID: 11400000, guid: 39f1ad55c5cfbbd49b14377d61f04a60, type: 2}
   visualController: {fileID: 4426346131015675275}
+  turnScaleHighlighter: {fileID: 3977981518016006638}
 --- !u!114 &4426346131015675275
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -160,3 +162,20 @@ MonoBehaviour:
   attackSprite: {fileID: 6810665785504363281, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
   getHitSprite: {fileID: -1940056379714322047, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
   skillSprite: {fileID: 1920687853061580411, guid: 98b769056421be144ade3a03f0d8eea4, type: 3}
+--- !u!114 &3977981518016006638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7724348344785446905}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7507f1485b057004bbf8ebaa8f5ef150, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.ActorTurnScaleHighlighter
+  activeTurnScale: 1.08
+  activeTurnScaleDuration: 0.12
+  activeTurnReturnDuration: 0.12
+  useUnscaledTime: 0
+  targetTransform: {fileID: 8837517216284412230}

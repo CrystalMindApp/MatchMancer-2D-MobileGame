@@ -21,3 +21,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2220da4bf77f1314fbb9c7d0bda97da7, type: 2}
   - {fileID: 11400000, guid: c0fb4e3fe934eb84aacc8e92eeff8e79, type: 2}
   backgroundSprite: {fileID: -1431892769500769876, guid: e0e8e77ede8cc0b4e8985402d4c11608, type: 3}
+  foregroundSprite: {fileID: -7192357222849136107, guid: e1c06b7519485104d91bb2ee5f3ed7cf, type: 3}
+  stageBgm: {fileID: 8300000, guid: 431c1abca47c17c438fe6872c4659591, type: 3}

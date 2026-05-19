@@ -10,6 +10,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private CharacterData characterData;
         [SerializeField] private EnemyCombatProfile combatProfile;
         [SerializeField] private ActorSpriteSwapController visualController;
+        [SerializeField] private ActorTurnScaleHighlighter turnScaleHighlighter;
 
         // State
         private int currentHp;
@@ -35,6 +36,18 @@ namespace CrystalMind.MatchMancer
         public int EnemySelfHealAmount => combatProfile != null ? combatProfile.EnemySelfHealAmount : 0;
         public string EnemySkillAnnouncementText => combatProfile != null ? combatProfile.EnemySkillAnnouncementText : "Enemy Turn";
         public float EnemyActionDelay => combatProfile != null ? combatProfile.EnemyActionDelay : 0f;
+
+        #endregion
+
+        #region Unity Methods
+
+        private void Awake()
+        {
+            if (turnScaleHighlighter == null)
+            {
+                turnScaleHighlighter = GetComponentInChildren<ActorTurnScaleHighlighter>();
+            }
+        }
 
         #endregion
 
@@ -155,6 +168,17 @@ namespace CrystalMind.MatchMancer
         public void ResetVisual()
         {
             visualController?.ResetToIdle();
+            turnScaleHighlighter?.ResetHighlight();
+        }
+
+        public void HighlightTurnVisual()
+        {
+            turnScaleHighlighter?.Highlight();
+        }
+
+        public void ClearTurnHighlightVisual()
+        {
+            turnScaleHighlighter?.ClearHighlight();
         }
 
         #endregion

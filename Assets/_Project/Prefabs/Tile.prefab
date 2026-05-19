@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8406503296080487767}
   - component: {fileID: 3387285010284019614}
   - component: {fileID: 4008899449856773873}
+  - component: {fileID: 3411326893053146144}
   m_Layer: 0
   m_Name: Tile
   m_TagString: Untagged
@@ -69,6 +70,7 @@ MonoBehaviour:
   yellowBombSprite: {fileID: 391156772496594820, guid: 7ba3b8ed2babc1c4581940ab43cc5216, type: 3}
   purpleBombSprite: {fileID: 8298458156737711348, guid: 7ba3b8ed2babc1c4581940ab43cc5216, type: 3}
   specialType: 0
+  visualController: {fileID: 3411326893053146144}
 --- !u!61 &4008899449856773873
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -115,6 +117,32 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &3411326893053146144
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4881397524721403328}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae40cf0fa5b1a4844945bbbda715a260, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.TileVisualController
+  destroyParticlePrefab: {fileID: 0}
+  destroyAnimationDuration: 0.12
+  destroyScaleTarget: 0
+  destroyFadeEnabled: 1
+  specialSpawnParticlePrefab: {fileID: 0}
+  specialSpawnDuration: 0.2
+  specialSpawnOvershootScale: 1.2
+  selectedPulseScale: 1.12
+  selectedPulseSpeed: 3
+  enableSpecialGlow: 1
+  specialGlowColor: {r: 1, g: 1, b: 1, a: 1}
+  specialGlowIntensity: 0.35
+  specialGlowPulseSpeed: 2
+  targetRenderer: {fileID: 2958410673802784383}
 --- !u!1 &6439299440265507847
 GameObject:
   m_ObjectHideFlags: 0
