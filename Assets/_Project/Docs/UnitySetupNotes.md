@@ -111,8 +111,9 @@
   - `tinyImpulse`
   - debug/direct-play `enemyRoundSequence`
 - Important settings:
-  - `enemySkillCooldownTurns` controls enemy readiness pacing.
   - `enemyRoundSequence` is only a direct-play fallback when no `StageDefinition` is selected.
+  - Enemy skill cooldown/readiness pacing is owned by the active `EnemyCombatProfile`.
+  - `GameManager` coordinates enemy turn flow and reads cooldown from the active `EnemyActor` profile.
 - If missing:
   - Missing actors/board/HUD prevents normal gameplay setup.
   - Missing optional polish refs disables only that polish.
@@ -211,6 +212,8 @@
   - `damagePopupAnchor`
 - If using enemy round sequence:
   - `EnemyDefinition` applies runtime character/combat/visual data to the same scene `EnemyActor`.
+- Direct MainGame fallback:
+  - If no `StageDefinition` is selected and no `GameManager.enemyRoundSequence` is configured, the fallback `characterData` and `combatProfile` on `EnemyActor` are used.
 - Test:
   - Enemy swaps definitions across rounds.
   - Enemy HP resets per round.
@@ -241,12 +244,13 @@
 
 ### EnemyCombatProfile
 
-- Stores enemy-side behavior chances:
+- Stores enemy-side behavior and readiness tuning:
   - disrupt chance
   - curse chance
   - crit chance/multiplier
   - self-heal chance/amount
   - skill announcement text
+  - enemy skill cooldown/readiness turns
 - Cleanup note:
   - `enemyActionDelay` / `EnemyActionDelay` currently appears unused by runtime turn flow. Do not remove until enemy profile assets are reviewed.
 
@@ -269,6 +273,9 @@
   - enemy round sequence
   - optional background/foreground sprites
   - optional stage BGM
+- Production battle flow:
+  - `StageDefinition.enemyRoundSequence` is the production source for staged enemy rounds.
+  - `GameManager.enemyRoundSequence` remains direct-play/debug fallback only.
 
 ## Deprecated Fields / Safe Cleanup Candidates
 

@@ -24,27 +24,27 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float enemyAttackDelay = 0.5f;
         [SerializeField, Min(0f)] private float enemyAbilityDelay = 0.5f;
         [SerializeField, Min(0f)] private float enemyTurnEndDelay = 0.4f;
-        [SerializeField, Min(0)] private int enemySkillCooldownTurns = 2;
 
         [Header("Scene Settings")]
         [SerializeField] private string homeSceneName = "Home";
 
-        [Header("Actor References")]
+        [Header("Production References")]
         [SerializeField] private PlayerActor playerActor;
         [SerializeField] private EnemyActor enemyActor;
+        [SerializeField] private BoardManager boardManager;
+        [SerializeField] private GameHUD gameHUD;
 
         [Header("Debug / Direct Play Fallback")]
         // Used only when MainGame is played directly without a selected StageDefinition.
         [SerializeField] private EnemyDefinition[] enemyRoundSequence;
-        [SerializeField] private int currentEnemyRoundIndex;
 
         [Header("Curse Settings")]
         [SerializeField, Range(0f, 1f)] private float defaultCurseMissChance = 0.25f;
         [SerializeField, Min(1)] private int defaultCurseDuration = 2;
 
-        [Header("References")]
-        [SerializeField] private BoardManager boardManager;
-        [SerializeField] private GameHUD gameHUD;
+        [Header("Polish References")]
+        [SerializeField] private DamagePopupController damagePopupController;
+        [SerializeField] private CinemachineTinyImpulse tinyImpulse;
 
         [Header("Debug")]
         [SerializeField] private bool enableCombatDebugLogs = true;
@@ -55,6 +55,7 @@ namespace CrystalMind.MatchMancer
         private bool isTurnResolving;
         private bool isActiveSkillResolving;
         private string turnStatusText = "Player Turn";
+        private int currentEnemyRoundIndex;
         private int enemySkillTurnsRemaining;
         private bool enemyRoundSequenceActive;
         private bool isEnemyRoundTransitioning;
@@ -87,6 +88,12 @@ namespace CrystalMind.MatchMancer
         public string TurnStatusText => turnStatusText;
         public string SpeedInfoText => $"P: {(playerActor != null ? playerActor.CurrentTurnSpeed : 0)}  E: {(enemyActor != null ? enemyActor.BaseSpeed : 0)}";
         public int PassiveStackThreshold => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.StackThreshold : 0;
+        public int EnemySkillTurnsRemaining => Mathf.Max(0, enemySkillTurnsRemaining);
+        public int EnemySkillCooldownTurns => enemyActor != null ? enemyActor.EnemySkillCooldownTurns : 0;
+        public bool IsEnemySkillReady => EnemySkillTurnsRemaining <= 0;
+        public float EnemyIntentFill01 => EnemySkillCooldownTurns > 0
+            ? 1f - Mathf.Clamp01((float)EnemySkillTurnsRemaining / EnemySkillCooldownTurns)
+            : 1f;
         public string EnemySkillCooldownText => enemySkillTurnsRemaining <= 0 ? "Enemy Skill: Ready" : $"Enemy Skill: {enemySkillTurnsRemaining}";
         public string CurrentRoundText => GetRoundDisplayText();
         public string CurrentStageText => currentStageName;
@@ -453,11 +460,17 @@ namespace CrystalMind.MatchMancer
             yield return new WaitForSeconds(enemyTurnStartDelay);
             gameHUD?.ClearEnemySkillText();
 
-            bool enemyUsedSkill = EnemyAttack();
+            bool enemyWasReadyAtTurnStart = IsEnemySkillReady;
+            bool enemyUsedSkill = EnemyAttack(enemyWasReadyAtTurnStart);
             yield return new WaitForSeconds(enemyAttackDelay);
 
             if (playerActor != null && playerActor.CurrentHp <= 0)
             {
+                if (enemyWasReadyAtTurnStart)
+                {
+                    ResetEnemySkillCounter();
+                }
+
                 ClearTurnHighlight();
                 isEnemyActionResolving = false;
                 yield break;
@@ -468,14 +481,23 @@ namespace CrystalMind.MatchMancer
                 yield return new WaitForSeconds(enemyAbilityDelay);
             }
 
-            if (TryEnemySelfHeal())
+            if (enemyWasReadyAtTurnStart && TryEnemySelfHeal())
             {
                 yield return new WaitForSeconds(enemyAbilityDelay);
             }
 
-            if (TryEnemyDisruption())
+            if (enemyWasReadyAtTurnStart && TryEnemyDisruption())
             {
                 yield return new WaitForSeconds(enemyAbilityDelay);
+            }
+
+            if (enemyWasReadyAtTurnStart)
+            {
+                ResetEnemySkillCounter();
+            }
+            else
+            {
+                AdvanceEnemySkillCounter();
             }
 
             yield return new WaitForSeconds(enemyTurnEndDelay);
@@ -546,7 +568,7 @@ namespace CrystalMind.MatchMancer
             isTurnResolving = false;
             isActiveSkillResolving = false;
             turnStatusText = "Player Turn";
-            enemySkillTurnsRemaining = 0;
+            ResetEnemySkillCounter();
             isEnemyRoundTransitioning = false;
             isEnemyActionResolving = false;
         }
@@ -690,11 +712,15 @@ namespace CrystalMind.MatchMancer
             int damage = CalculatePlayerDamage(clearedTileCount);
             HighlightPlayerTurn();
             playerActor.PlayAttackVisual();
+            playerActor.PlayAttackMotion(enemyActor.transform.position);
             enemyActor.TakeDamage(damage);
 
             if (damage > 0)
             {
                 enemyActor.PlayGetHitVisual();
+                enemyActor.PlayHitMotion(playerActor.transform.position);
+                ShowDamagePopup(damage, enemyActor.DamagePopupAnchor);
+                tinyImpulse?.Shake();
             }
 
             pendingCritChance = 0f;
@@ -729,11 +755,12 @@ namespace CrystalMind.MatchMancer
             return Mathf.Max(0, Mathf.RoundToInt(damage));
         }
 
-        private bool EnemyAttack()
+        private bool EnemyAttack(bool canAttemptSpecial)
         {
             int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
             HighlightEnemyTurn();
             enemyActor.PlayAttackVisual();
+            enemyActor.PlayAttackMotion(playerActor.transform.position);
             bool usedSkill = false;
 
             if (damage <= 0)
@@ -751,14 +778,16 @@ namespace CrystalMind.MatchMancer
             if (damage > 0)
             {
                 playerActor.PlayGetHitVisual();
+                playerActor.PlayHitMotion(enemyActor.transform.position);
+                ShowDamagePopup(damage, playerActor.DamagePopupAnchor);
+                tinyImpulse?.Shake();
             }
 
             LogEnemy($"Enemy attacks for {damage}. Player HP: {playerActor.CurrentHp}");
 
-            if (damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
+            if (canAttemptSpecial && damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
             {
                 enemyActor.PlaySkillVisual();
-                StartEnemySkillCooldown();
                 ApplyCurseToPlayer();
                 usedSkill = true;
             }
@@ -782,7 +811,6 @@ namespace CrystalMind.MatchMancer
 
             enemyActor.Heal(healAmount);
             enemyActor.PlaySkillVisual();
-            StartEnemySkillCooldown();
             LogEnemy($"Enemy heals for {healAmount}. Enemy HP: {enemyActor.CurrentHp}");
             return true;
         }
@@ -798,7 +826,6 @@ namespace CrystalMind.MatchMancer
             if (disrupted)
             {
                 enemyActor.PlaySkillVisual();
-                StartEnemySkillCooldown();
             }
 
             LogEnemy(disrupted
@@ -811,7 +838,6 @@ namespace CrystalMind.MatchMancer
         {
             playerActor?.TickCurseDuration();
             enemyActor?.TickCurseDuration();
-            enemySkillTurnsRemaining = Mathf.Max(0, enemySkillTurnsRemaining - 1);
         }
 
         private void ResetActorVisuals()
@@ -821,9 +847,19 @@ namespace CrystalMind.MatchMancer
             ClearTurnHighlight();
         }
 
-        private void StartEnemySkillCooldown()
+        private void ResetEnemySkillCounter()
         {
-            enemySkillTurnsRemaining = enemySkillCooldownTurns;
+            enemySkillTurnsRemaining = EnemySkillCooldownTurns;
+        }
+
+        private void AdvanceEnemySkillCounter()
+        {
+            enemySkillTurnsRemaining = Mathf.Max(0, enemySkillTurnsRemaining - 1);
+        }
+
+        private void ShowDamagePopup(int amount, Transform anchor)
+        {
+            damagePopupController?.ShowDamage(amount, anchor);
         }
 
         private bool ShouldPlayerActFirst()
@@ -993,7 +1029,7 @@ namespace CrystalMind.MatchMancer
             }
 
             currentEnemyRoundIndex = roundIndex;
-            enemySkillTurnsRemaining = 0;
+            ResetEnemySkillCounter();
             LogSystem($"Battle enemy round started: {roundIndex + 1}/{activeEnemyRoundSequence.Length} - {definition.DisplayName}");
             LogSystem($"Enemy round started with visual: {definition.DisplayName}");
             LogSystem($"Round UI updated: {GetRoundDisplayText()}");
@@ -1010,7 +1046,7 @@ namespace CrystalMind.MatchMancer
 
             if (enemyActor.CharacterData != null && enemyActor.CombatProfile != null)
             {
-                enemySkillTurnsRemaining = 0;
+                ResetEnemySkillCounter();
                 LogSystem($"Fallback enemy used: {GetCurrentEnemyDisplayName()}");
                 LogSystem($"Round UI updated: {GetRoundDisplayText()}");
                 return;

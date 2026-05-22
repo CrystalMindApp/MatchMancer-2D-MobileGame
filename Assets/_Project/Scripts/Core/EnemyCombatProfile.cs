@@ -7,6 +7,8 @@ namespace CrystalMind.MatchMancer
     {
         #region Variables
 
+        private const int DefaultEnemySkillCooldownTurns = 2;
+
         [SerializeField, Range(0f, 1f)] private float enemySpecialDisruptChance = 1f;
         [SerializeField, Range(0f, 1f)] private float enemyApplyCurseChance;
         [SerializeField, Range(0f, 1f)] private float enemyCritChance;
@@ -14,6 +16,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Range(0f, 1f)] private float enemySelfHealChance;
         [SerializeField, Min(0)] private int enemySelfHealAmount;
         [SerializeField] private string enemySkillAnnouncementText = "Enemy Counter";
+        [SerializeField, Min(1)] private int enemySkillCooldownTurns = DefaultEnemySkillCooldownTurns;
         [SerializeField, Min(0f)] private float enemyActionDelay = 2f;
 
         #endregion
@@ -27,6 +30,7 @@ namespace CrystalMind.MatchMancer
         public float EnemySelfHealChance => enemySelfHealChance;
         public int EnemySelfHealAmount => enemySelfHealAmount;
         public string EnemySkillAnnouncementText => string.IsNullOrWhiteSpace(enemySkillAnnouncementText) ? name : enemySkillAnnouncementText;
+        public int EnemySkillCooldownTurns => enemySkillCooldownTurns > 0 ? enemySkillCooldownTurns : DefaultEnemySkillCooldownTurns;
         public float EnemyActionDelay => enemyActionDelay;
 
         #endregion
