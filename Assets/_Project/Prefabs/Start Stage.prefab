@@ -576,9 +576,13 @@ MonoBehaviour:
   - {fileID: 8580410499092608128}
   - {fileID: 7898430612269035889}
   - {fileID: 3483648985961567980}
-  lockedVisual: {fileID: 8501117565208701487}
-  lockedVisualCanvasGroup: {fileID: 9072119253372429932}
-  lockedVisualGraphic: {fileID: 3220165068668726783}
+  lockImage: {fileID: 3220165068668726783}
+  lockCanvasGroup: {fileID: 9072119253372429932}
+  lockedSprite: {fileID: 4687676454861773544, guid: 9fb74a1c75ba04d40a99415c4d3c6aa2, type: 3}
+  unlockedSprite: {fileID: 242806882524064859, guid: 9fb74a1c75ba04d40a99415c4d3c6aa2, type: 3}
+  lockedVisual: {fileID: 0}
+  lockedVisualCanvasGroup: {fileID: 0}
+  lockedVisualGraphic: {fileID: 0}
   unlockVisual: {fileID: 0}
 --- !u!1 &7493426540921195047
 GameObject:
@@ -842,7 +846,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -13}
+  m_AnchoredPosition: {x: 0, y: 20}
   m_SizeDelta: {x: 250, y: 250}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4026472569486830585
@@ -873,7 +877,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 7136874429828599120, guid: 58d9dd96d540fe7499d5e144e472cd96, type: 3}
+  m_Sprite: {fileID: 4687676454861773544, guid: 9fb74a1c75ba04d40a99415c4d3c6aa2, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

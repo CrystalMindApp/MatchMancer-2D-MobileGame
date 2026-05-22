@@ -1,5 +1,8 @@
 namespace CrystalMind.MatchMancer
 {
+    using System.Collections.Generic;
+    using UnityEngine;
+
     public static class StageSession
     {
         #region Variables
@@ -12,6 +15,7 @@ namespace CrystalMind.MatchMancer
         private static int pendingUnlockedStageIndex = -1;
         private static bool pendingStageStarsImproved;
         private static bool pendingStageUnlockedNext;
+        private static readonly HashSet<int> shownUnlockVisualStages = new HashSet<int>();
 
         #endregion
 
@@ -30,6 +34,14 @@ namespace CrystalMind.MatchMancer
         #endregion
 
         #region Public Methods
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ResetRuntimeState()
+        {
+            ClearSelectedStage();
+            ClearPendingStageClearVisual();
+            ClearUnlockVisualHistory();
+        }
 
         public static void ClearSelectedStage()
         {
@@ -57,6 +69,24 @@ namespace CrystalMind.MatchMancer
             pendingUnlockedStageIndex = -1;
             pendingStageStarsImproved = false;
             pendingStageUnlockedNext = false;
+        }
+
+        public static bool HasShownUnlockVisual(int stageIndex)
+        {
+            return stageIndex >= 0 && shownUnlockVisualStages.Contains(stageIndex);
+        }
+
+        public static void MarkUnlockVisualShown(int stageIndex)
+        {
+            if (stageIndex >= 0)
+            {
+                shownUnlockVisualStages.Add(stageIndex);
+            }
+        }
+
+        public static void ClearUnlockVisualHistory()
+        {
+            shownUnlockVisualStages.Clear();
         }
 
         #endregion

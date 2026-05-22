@@ -127,10 +127,58 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1865205248}
     m_Modifications:
+    - target: {fileID: 753866705971764489, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 753866705971764489, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 753866705971764489, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 753866705971764489, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3200981130098602373, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
       propertyPath: sceneAudioLibrary
-      value: 
+      value:
       objectReference: {fileID: 1278584990}
+    - target: {fileID: 4282380775828580717, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4282380775828580717, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4282380775828580717, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4282380775828580717, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5774087067849608028, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5774087067849608028, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5774087067849608028, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5774087067849608028, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6779560752029791981, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
       propertyPath: m_Name
       value: Start Stage 1
@@ -225,6 +273,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 9061856893223249042, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
   m_PrefabInstance: {fileID: 170918951}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &170918953 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3200981130098602373, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+  m_PrefabInstance: {fileID: 170918951}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 962bf2dc033c4dc985b7b77e55752318, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.StageSelectButton
 --- !u!1 &357304357
 GameObject:
   m_ObjectHideFlags: 0
@@ -328,7 +387,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -698,7 +757,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 60cba43f843e475c8bb91a89033347df, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.AudioManager
   bgmFadeDuration: 0.75
   defaultSfxMinInterval: 0.05
@@ -737,7 +796,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
   m_IgnoreReversedGraphics: 1
   m_BlockingObjects: 0
@@ -754,7 +813,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
   m_UiScaleMode: 0
   m_ReferencePixelsPerUnit: 100
@@ -838,7 +897,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.UI.InputSystemUIInputModule
   m_SendPointerHoverToParent: 1
   m_MoveRepeatDelay: 0.5
@@ -869,7 +928,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
   m_FirstSelected: {fileID: 0}
   m_sendNavigationEvents: 1
@@ -897,10 +956,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 3166846251601242855, guid: e32de3fea3de07348aced327afd7abe5, type: 3}
-      propertyPath: sceneBgm
-      value: 
-      objectReference: {fileID: 8300000, guid: f1b42613cfb0f5147a9c85fd16f133f1, type: 3}
     - target: {fileID: 6699294904356802333, guid: e32de3fea3de07348aced327afd7abe5, type: 3}
       propertyPath: m_Name
       value: SceneAudioLibrary
@@ -959,7 +1014,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5132ec38e2bc4874bad566ab515e99c8, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.SceneAudioLibrary
 --- !u!1001 &1476206842
 PrefabInstance:
@@ -1067,6 +1122,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 9061856893223249042, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
   m_PrefabInstance: {fileID: 5464118210517633039}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1818183544 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3200981130098602373, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
+  m_PrefabInstance: {fileID: 5464118210517633039}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 962bf2dc033c4dc985b7b77e55752318, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.StageSelectButton
 --- !u!1 &1865205247
 GameObject:
   m_ObjectHideFlags: 0
@@ -1077,6 +1143,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1865205248}
   - component: {fileID: 1865205249}
+  - component: {fileID: 1865205250}
   m_Layer: 5
   m_Name: Stage Groups
   m_TagString: Untagged
@@ -1115,7 +1182,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
   m_Padding:
     m_Left: 0
@@ -1131,6 +1198,34 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &1865205250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1865205247}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45959e7e439843898b7d442288d81ced, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.StageSelectPanel
+  enableStageClearTransition: 1
+  transitionStartDelay: 0.15
+  starRevealDelay: 0.22
+  starPopScale: 1.25
+  starPopDuration: 0.2
+  postStarRevealDelay: 0.35
+  lockShakeDuration: 1
+  lockShakeStrength: 8
+  postLockShakeDelay: 0.12
+  postUnlockSpriteDelay: 0.25
+  lockFadeDuration: 0.4
+  postUnlockDelay: 0.15
+  blockInputDuringStageTransition: 1
+  stageButtons:
+  - {fileID: 170918953}
+  - {fileID: 1818183544}
 --- !u!1001 &5464118210517633039
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1197,11 +1292,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3200981130098602373, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
       propertyPath: stageDefinition
-      value: 
+      value:
       objectReference: {fileID: 11400000, guid: ff2fa49c11f92a14faa0c3216d9784c3, type: 2}
     - target: {fileID: 3200981130098602373, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
       propertyPath: sceneAudioLibrary
-      value: 
+      value:
       objectReference: {fileID: 1278584990}
     - target: {fileID: 4282380775828580717, guid: e1dcfcddda969464997900a85b84fc16, type: 3}
       propertyPath: m_AnchorMax.y

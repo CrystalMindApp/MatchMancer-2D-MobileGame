@@ -20,16 +20,17 @@ namespace CrystalMind.MatchMancer
 
         [Header("Stage Clear Visuals")]
         [SerializeField] private GameObject[] starObjects;
-        [SerializeField] private GameObject lockedVisual;
-        [SerializeField] private CanvasGroup lockedVisualCanvasGroup;
-        [SerializeField] private Graphic lockedVisualGraphic;
-        [SerializeField] private GameObject unlockVisual;
+        [SerializeField] private Image lockImage;
+        [SerializeField] private CanvasGroup lockCanvasGroup;
+        [SerializeField] private Sprite lockedSprite;
+        [SerializeField] private Sprite unlockedSprite;
 
         // Cache
 
         // State
         private bool hasSearchedSceneAudioLibrary;
         private bool inputBlocked;
+        private bool isUnlockAnimating;
 
         #endregion
 
@@ -86,17 +87,22 @@ namespace CrystalMind.MatchMancer
 
         public void RefreshVisualState()
         {
-            bool isUnlocked = IsUnlocked;
-            int stars = Stars;
+            if (isUnlockAnimating)
+            {
+                return;
+            }
+
+            bool isUnlocked = GetDisplayUnlockedState();
+            int stars = GetDisplayStars();
+            bool showLockedPresentation = ShouldShowLockedPresentation(isUnlocked);
 
             if (button != null)
             {
-                button.interactable = isUnlocked && !inputBlocked;
+                button.interactable = isUnlocked && !inputBlocked && !showLockedPresentation;
             }
 
-            SetLockedVisual(!isUnlocked, 1f);
+            SetLockPresentation(showLockedPresentation, showLockedPresentation ? lockedSprite : unlockedSprite, 1f);
             SetStarsVisual(stars);
-            SetUnlockVisual(isUnlocked);
         }
 
         public void SetInputBlocked(bool blocked)
@@ -126,13 +132,7 @@ namespace CrystalMind.MatchMancer
 
         public void SetLockedVisual(bool locked, float alpha = 1f)
         {
-            if (lockedVisual == null)
-            {
-                return;
-            }
-
-            lockedVisual.SetActive(locked);
-            SetLockAlpha(alpha);
+            SetLockPresentation(locked, locked ? lockedSprite : unlockedSprite, alpha);
         }
 
         public IEnumerator PlayStarRevealTransition(int previousStars, int earnedStars, float revealDelay, float popScale, float popDuration)
@@ -154,21 +154,41 @@ namespace CrystalMind.MatchMancer
             }
         }
 
-        public IEnumerator PlayUnlockTransition(float lockFadeDuration)
+        public IEnumerator PlayUnlockTransition(
+            float lockShakeDuration,
+            float lockShakeStrength,
+            float postLockShakeDelay,
+            float postUnlockSpriteDelay,
+            float lockFadeDuration)
         {
-            if (lockedVisual == null)
+            Image image = GetLockImage();
+            if (image == null)
             {
                 yield break;
             }
 
-            lockedVisual.SetActive(true);
-            SetUnlockVisual(false);
+            isUnlockAnimating = true;
+
+            if (button != null)
+            {
+                button.interactable = false;
+            }
+
+            SetLockPresentation(true, lockedSprite, 1f);
+            yield return StartCoroutine(PlayLockShakeRoutine(lockShakeDuration, lockShakeStrength));
+            yield return new WaitForSecondsRealtime(Mathf.Max(0f, postLockShakeDelay));
+
+            SetLockSprite(unlockedSprite);
+            SetLockAlpha(1f);
+            yield return new WaitForSecondsRealtime(Mathf.Max(0f, postUnlockSpriteDelay));
+
             float safeDuration = Mathf.Max(0f, lockFadeDuration);
 
             if (safeDuration <= 0f)
             {
-                SetLockedVisual(false, 0f);
-                SetUnlockVisual(true);
+                SetLockPresentation(false, unlockedSprite, 0f);
+                StageSession.MarkUnlockVisualShown(stageIndex);
+                isUnlockAnimating = false;
                 yield break;
             }
 
@@ -182,8 +202,9 @@ namespace CrystalMind.MatchMancer
                 yield return null;
             }
 
-            SetLockedVisual(false, 0f);
-            SetUnlockVisual(true);
+            SetLockPresentation(false, unlockedSprite, 0f);
+            StageSession.MarkUnlockVisualShown(stageIndex);
+            isUnlockAnimating = false;
         }
 
         #endregion
@@ -229,62 +250,120 @@ namespace CrystalMind.MatchMancer
 
         private void SetLockAlpha(float alpha)
         {
-            if (lockedVisualCanvasGroup != null)
+            CanvasGroup lockGroup = GetLockCanvasGroup();
+            if (lockGroup != null)
             {
-                lockedVisualCanvasGroup.alpha = Mathf.Clamp01(alpha);
+                lockGroup.alpha = Mathf.Clamp01(alpha);
                 return;
             }
 
-            if (lockedVisualGraphic != null)
-            {
-                SetGraphicAlpha(lockedVisualGraphic, alpha);
-                return;
-            }
-
-            if (lockedVisual == null)
-            {
-                return;
-            }
-
-            CanvasGroup canvasGroup = lockedVisual.GetComponent<CanvasGroup>();
-            if (canvasGroup != null)
-            {
-                canvasGroup.alpha = Mathf.Clamp01(alpha);
-                return;
-            }
-
-            Graphic graphic = lockedVisual.GetComponent<Graphic>();
-            if (graphic == null)
-            {
-                graphic = lockedVisual.GetComponentInChildren<Graphic>(true);
-            }
-
-            if (graphic == null)
-            {
-                return;
-            }
-
-            SetGraphicAlpha(graphic, alpha);
         }
 
-        private void SetUnlockVisual(bool visible)
+        private int GetDisplayStars()
         {
-            if (unlockVisual != null)
+            if (StageSession.HasPendingStageClearVisual &&
+                StageSession.PendingStageStarsImproved &&
+                StageSession.PendingClearedStageIndex == stageIndex)
             {
-                unlockVisual.SetActive(visible);
+                return StageSession.PendingPreviousStars;
             }
+
+            return Stars;
         }
 
-        private void SetGraphicAlpha(Graphic graphic, float alpha)
+        private bool GetDisplayUnlockedState()
         {
-            if (graphic == null)
+            if (StageSession.HasPendingStageClearVisual &&
+                StageSession.PendingStageUnlockedNext &&
+                StageSession.PendingUnlockedStageIndex == stageIndex)
+            {
+                return false;
+            }
+
+            return IsUnlocked;
+        }
+
+        private bool ShouldShowLockedPresentation(bool isUnlocked)
+        {
+            if (!isUnlocked)
+            {
+                return true;
+            }
+
+            return !StageSession.HasShownUnlockVisual(stageIndex);
+        }
+
+        private void SetLockPresentation(bool visible, Sprite sprite, float alpha)
+        {
+            Image image = GetLockImage();
+
+            if (image != null)
+            {
+                image.gameObject.SetActive(visible);
+            }
+
+            SetLockSprite(sprite);
+            SetLockAlpha(alpha);
+
+        }
+
+        private void SetLockSprite(Sprite sprite)
+        {
+            if (sprite == null)
             {
                 return;
             }
 
-            Color color = graphic.color;
-            color.a = Mathf.Clamp01(alpha);
-            graphic.color = color;
+            Image image = GetLockImage();
+            if (image != null)
+            {
+                image.sprite = sprite;
+            }
+
+        }
+
+        private Image GetLockImage()
+        {
+            return lockImage;
+        }
+
+        private CanvasGroup GetLockCanvasGroup()
+        {
+            return lockCanvasGroup;
+        }
+
+        private IEnumerator PlayLockShakeRoutine(float duration, float strength)
+        {
+            Image image = GetLockImage();
+            float safeDuration = Mathf.Max(0f, duration);
+            float safeStrength = Mathf.Max(0f, strength);
+
+            if (safeDuration <= 0f)
+            {
+                yield break;
+            }
+
+            Transform lockTransform = image != null ? image.transform : null;
+            Vector3 originalLocalPosition = lockTransform != null ? lockTransform.localPosition : Vector3.zero;
+            float elapsed = 0f;
+
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float shake = safeStrength > 0f ? Mathf.Sin(elapsed * 45f) * safeStrength : 0f;
+
+                if (lockTransform != null)
+                {
+                    lockTransform.localPosition = originalLocalPosition + Vector3.right * shake;
+                }
+
+                yield return null;
+            }
+
+            if (lockTransform != null)
+            {
+                lockTransform.localPosition = originalLocalPosition;
+            }
         }
 
         private SceneAudioLibrary GetSceneAudioLibrary()

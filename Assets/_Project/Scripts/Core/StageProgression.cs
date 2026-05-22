@@ -16,6 +16,15 @@ namespace CrystalMind.MatchMancer
 
         #region Public Methods
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ResetRuntimeState()
+        {
+            unlockedStages.Clear();
+            clearedStages.Clear();
+            stageStars.Clear();
+            unlockedStages.Add(0);
+        }
+
         public static bool IsStageUnlocked(int stageIndex)
         {
             return stageIndex >= 0 && unlockedStages.Contains(stageIndex);
@@ -97,6 +106,7 @@ namespace CrystalMind.MatchMancer
             stageStars.Clear();
             unlockedStages.Add(0);
             StageSession.ClearPendingStageClearVisual();
+            StageSession.ClearUnlockVisualHistory();
             Debug.Log("Stage progression reset");
             LogProgressionState();
         }
