@@ -38,6 +38,7 @@ namespace CrystalMind.MatchMancer
         private void OnEnable()
         {
             RefreshAllStageButtons();
+            StartCoroutine(ReleaseTransitionOverlayAfterLayoutRoutine());
             TryPlayPendingStageClearTransition();
         }
 
@@ -139,6 +140,7 @@ namespace CrystalMind.MatchMancer
             StageSelectButton unlockedStageButton = GetStageButton(StageSession.PendingUnlockedStageIndex);
 
             SetStageButtonInputBlocked(blockInputDuringStageTransition);
+            yield return StartCoroutine(WaitForTransitionOverlayRoutine());
             yield return new WaitForSecondsRealtime(transitionStartDelay);
 
             if (StageSession.PendingStageUnlockedNext && unlockedStageButton != null)
@@ -182,6 +184,7 @@ namespace CrystalMind.MatchMancer
             stageButton.SetInputBlocked(true);
             yield return null;
             Canvas.ForceUpdateCanvases();
+            yield return StartCoroutine(WaitForTransitionOverlayRoutine());
             yield return new WaitForSecondsRealtime(transitionStartDelay + initialUnlockStartDelay);
             yield return StartCoroutine(stageButton.PlayUnlockTransition(
                 lockShakeDuration,
@@ -257,6 +260,27 @@ namespace CrystalMind.MatchMancer
                 {
                     stageButton.SetInputBlocked(blocked);
                 }
+            }
+        }
+
+        private IEnumerator WaitForTransitionOverlayRoutine()
+        {
+            if (TransitionOverlayController.Instance == null)
+            {
+                yield break;
+            }
+
+            yield return TransitionOverlayController.Instance.WaitForTransitionComplete();
+        }
+
+        private IEnumerator ReleaseTransitionOverlayAfterLayoutRoutine()
+        {
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+
+            if (TransitionOverlayController.Instance != null)
+            {
+                TransitionOverlayController.Instance.ReleaseSceneReady();
             }
         }
 

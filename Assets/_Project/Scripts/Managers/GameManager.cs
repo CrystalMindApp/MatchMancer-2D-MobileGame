@@ -118,7 +118,7 @@ namespace CrystalMind.MatchMancer
 
         private void Start()
         {
-            StartGame();
+            StartCoroutine(StartGameRoutine());
         }
 
         private void Update()
@@ -334,7 +334,7 @@ namespace CrystalMind.MatchMancer
         {
             LogSystem("Retry current stage.");
             StageSession.ClearPendingStageClearVisual();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            LoadSceneWithTransition(SceneManager.GetActiveScene().name);
         }
 
         public void BackToHome()
@@ -347,12 +347,29 @@ namespace CrystalMind.MatchMancer
 
             LogSystem("Back to home/menu.");
             StageSession.ClearSelectedStage();
-            SceneManager.LoadScene(homeSceneName);
+            LoadSceneWithTransition(homeSceneName);
         }
 
         #endregion
 
         #region Private Methods
+
+        private IEnumerator StartGameRoutine()
+        {
+            SetBoardInputBlocked(true);
+            StartGame();
+
+            if (TransitionOverlayController.Instance != null)
+            {
+                TransitionOverlayController.Instance.ReleaseSceneReady();
+                yield return TransitionOverlayController.Instance.WaitForTransitionComplete();
+            }
+
+            if (IsPlaying)
+            {
+                SetBoardInputBlocked(false);
+            }
+        }
 
         private IEnumerator ActiveSkillRoutine(ActiveSkillData activeSkill, TileType? overrideTargetType = null)
         {
@@ -990,6 +1007,17 @@ namespace CrystalMind.MatchMancer
             {
                 boardManager.SetInputBlocked(blocked);
             }
+        }
+
+        private void LoadSceneWithTransition(string sceneName)
+        {
+            if (TransitionOverlayController.Instance != null)
+            {
+                TransitionOverlayController.Instance.TransitionToScene(sceneName);
+                return;
+            }
+
+            SceneManager.LoadScene(sceneName);
         }
 
         private bool HasRequiredActorReferences()

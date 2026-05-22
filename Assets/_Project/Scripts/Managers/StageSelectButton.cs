@@ -82,7 +82,7 @@ namespace CrystalMind.MatchMancer
 
             StageSession.SelectedStage = stageDefinition;
             StageSession.SelectedStageIndex = stageIndex;
-            SceneManager.LoadScene(mainGameSceneName);
+            LoadSceneWithTransition(mainGameSceneName);
         }
 
         public void RefreshVisualState()
@@ -387,6 +387,17 @@ namespace CrystalMind.MatchMancer
             hasSearchedSceneAudioLibrary = true;
             sceneAudioLibrary = FindFirstObjectByType<SceneAudioLibrary>();
             return sceneAudioLibrary;
+        }
+
+        private void LoadSceneWithTransition(string sceneName)
+        {
+            if (TransitionOverlayController.Instance != null)
+            {
+                TransitionOverlayController.Instance.TransitionToScene(sceneName);
+                return;
+            }
+
+            SceneManager.LoadScene(sceneName);
         }
 
         #endregion

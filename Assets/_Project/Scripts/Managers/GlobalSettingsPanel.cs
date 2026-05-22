@@ -225,7 +225,7 @@ namespace CrystalMind.MatchMancer
 
         private void HandleRestartClicked()
         {
-            HideThen(() => SceneManager.LoadScene(SceneManager.GetActiveScene().name));
+            BeginSceneTransitionFromOpenPanel(SceneManager.GetActiveScene().name, null);
         }
 
         private void HandleHomeClicked()
@@ -236,11 +236,7 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            HideThen(() =>
-            {
-                StageSession.ClearSelectedStage();
-                SceneManager.LoadScene(homeSceneName);
-            });
+            BeginSceneTransitionFromOpenPanel(homeSceneName, StageSession.ClearSelectedStage);
         }
 
         private void HandleMuteClicked()
@@ -393,6 +389,27 @@ namespace CrystalMind.MatchMancer
         private void HideThen(Action onComplete)
         {
             HidePanel(onComplete);
+        }
+
+        private void BeginSceneTransitionFromOpenPanel(string sceneName, Action beforeLoadWhenBlack)
+        {
+            SetPanelControlsInteractable(false);
+            isChangingVisibility = true;
+            isPanelOpen = false;
+
+            if (TransitionOverlayController.Instance != null)
+            {
+                TransitionOverlayController.Instance.TransitionToScene(sceneName, () =>
+                {
+                    beforeLoadWhenBlack?.Invoke();
+                    CompleteHidePanel();
+                });
+                return;
+            }
+
+            beforeLoadWhenBlack?.Invoke();
+            CompleteHidePanel();
+            SceneManager.LoadScene(sceneName);
         }
 
         private void SetOpenButtonVisible(bool visible)

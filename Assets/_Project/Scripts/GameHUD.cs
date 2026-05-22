@@ -221,41 +221,15 @@ public class GameHUD : MonoBehaviour
     private void HandleRetryClicked()
     {
         PlayButtonClickSfx();
-
-        HideResultThen(() => gameManager?.RetryCurrentStage());
+        SetResultButtonsInteractable(false);
+        gameManager?.RetryCurrentStage();
     }
 
     private void HandleBackToHomeClicked()
     {
         PlayButtonClickSfx();
-
-        HideResultThen(() => gameManager?.BackToHome());
-    }
-
-    private void HideResultThen(System.Action onComplete)
-    {
         SetResultButtonsInteractable(false);
-
-        if (resultPanelTransition != null)
-        {
-            resultPanelTransition.Hide(() =>
-            {
-                if (resultPanel != null)
-                {
-                    resultPanel.SetActive(false);
-                }
-
-                onComplete?.Invoke();
-            });
-            return;
-        }
-
-        if (resultPanel != null)
-        {
-            resultPanel.SetActive(false);
-        }
-
-        onComplete?.Invoke();
+        gameManager?.BackToHome();
     }
 
     private string GetResultDescription(bool isWin, string stageName)
