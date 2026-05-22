@@ -11,6 +11,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private PlayerCombatProfile combatProfile;
         [SerializeField] private ActorSpriteSwapController visualController;
         [SerializeField] private ActorTurnScaleHighlighter turnScaleHighlighter;
+        [SerializeField] private ActorCombatMotionController combatMotionController;
+        [SerializeField] private Transform damagePopupAnchor;
 
         // State
         private int currentHp;
@@ -50,6 +52,7 @@ namespace CrystalMind.MatchMancer
         public int CurrentTurnSpeedBonus => currentTurnSpeedBonus;
         public bool PassiveReady => passiveReady;
         public bool PassiveTriggeredThisTurn => passiveTriggeredThisTurn;
+        public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
 
         #endregion
 
@@ -60,6 +63,11 @@ namespace CrystalMind.MatchMancer
             if (turnScaleHighlighter == null)
             {
                 turnScaleHighlighter = GetComponentInChildren<ActorTurnScaleHighlighter>();
+            }
+
+            if (combatMotionController == null)
+            {
+                combatMotionController = GetComponentInChildren<ActorCombatMotionController>();
             }
         }
 
@@ -219,9 +227,24 @@ namespace CrystalMind.MatchMancer
             visualController?.PlayAttack();
         }
 
+        public void PlayAttackMotion(Vector3 targetWorldPosition)
+        {
+            combatMotionController?.PlayAttackMotion(targetWorldPosition);
+        }
+
         public void PlayGetHitVisual()
         {
             visualController?.PlayGetHit();
+        }
+
+        public void PlayDeadVisual()
+        {
+            visualController?.PlayDead();
+        }
+
+        public void PlayHitMotion(Vector3 sourceWorldPosition)
+        {
+            combatMotionController?.PlayHitMotion(sourceWorldPosition);
         }
 
         public void ShowIdleVisual()
@@ -248,6 +271,7 @@ namespace CrystalMind.MatchMancer
         {
             visualController?.ResetToIdle();
             turnScaleHighlighter?.ResetHighlight();
+            combatMotionController?.ResetMotion();
         }
 
         public void HighlightTurnVisual()

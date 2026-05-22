@@ -21,9 +21,11 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float actorActionDelay = 1f;
         [SerializeField, Min(0f)] private float nextEnemyRoundDelay = 0.75f;
         [SerializeField, Min(0f)] private float enemyTurnStartDelay = 0.4f;
-        [SerializeField, Min(0f)] private float enemyAttackDelay = 0.5f;
         [SerializeField, Min(0f)] private float enemyAbilityDelay = 0.5f;
         [SerializeField, Min(0f)] private float enemyTurnEndDelay = 0.4f;
+        [SerializeField, Min(0f)] private float attackImpactDelay = 0.5f;
+        [SerializeField, Min(0f)] private float postImpactHoldDelay = 0.5f;
+        [SerializeField, Min(0f)] private float deathHoldDelay = 0.5f;
 
         [Header("Scene Settings")]
         [SerializeField] private string homeSceneName = "Home";
@@ -60,6 +62,7 @@ namespace CrystalMind.MatchMancer
         private bool enemyRoundSequenceActive;
         private bool isEnemyRoundTransitioning;
         private bool isEnemyActionResolving;
+        private bool enemyAttackUsedSkillThisAction;
         private EnemyDefinition[] activeEnemyRoundSequence;
         private string currentStageName = "Stage";
 
@@ -395,8 +398,7 @@ namespace CrystalMind.MatchMancer
             if (playerActsFirst)
             {
                 SetTurnStatus("Player Acts First");
-                ExecutePlayerAttack(clearedTileCount);
-                yield return new WaitForSeconds(actorActionDelay);
+                yield return StartCoroutine(ExecutePlayerAttackRoutine(clearedTileCount));
 
                 if (enemyActor != null && enemyActor.CurrentHp <= 0)
                 {
@@ -421,8 +423,7 @@ namespace CrystalMind.MatchMancer
                     yield break;
                 }
 
-                ExecutePlayerAttack(clearedTileCount);
-                yield return new WaitForSeconds(actorActionDelay);
+                yield return StartCoroutine(ExecutePlayerAttackRoutine(clearedTileCount));
             }
 
             if (enemyActor != null && enemyActor.CurrentHp <= 0)
@@ -461,8 +462,8 @@ namespace CrystalMind.MatchMancer
             gameHUD?.ClearEnemySkillText();
 
             bool enemyWasReadyAtTurnStart = IsEnemySkillReady;
-            bool enemyUsedSkill = EnemyAttack(enemyWasReadyAtTurnStart);
-            yield return new WaitForSeconds(enemyAttackDelay);
+            yield return StartCoroutine(EnemyAttackRoutine(enemyWasReadyAtTurnStart));
+            bool enemyUsedSkill = enemyAttackUsedSkillThisAction;
 
             if (playerActor != null && playerActor.CurrentHp <= 0)
             {
@@ -707,12 +708,15 @@ namespace CrystalMind.MatchMancer
             return false;
         }
 
-        private void ApplyPlayerDamage(int clearedTileCount)
+        private IEnumerator ApplyPlayerDamageRoutine(int clearedTileCount)
         {
-            int damage = CalculatePlayerDamage(clearedTileCount);
             HighlightPlayerTurn();
             playerActor.PlayAttackVisual();
             playerActor.PlayAttackMotion(enemyActor.transform.position);
+
+            yield return new WaitForSeconds(attackImpactDelay);
+
+            int damage = CalculatePlayerDamage(clearedTileCount);
             enemyActor.TakeDamage(damage);
 
             if (damage > 0)
@@ -726,12 +730,24 @@ namespace CrystalMind.MatchMancer
             pendingCritChance = 0f;
 
             LogEnemy($"Player deals {damage} damage. Enemy HP: {enemyActor.CurrentHp}");
+
+            yield return new WaitForSeconds(postImpactHoldDelay);
+
+            if (enemyActor.CurrentHp <= 0)
+            {
+                enemyActor.PlayDeadVisual();
+                yield return new WaitForSeconds(deathHoldDelay);
+                yield break;
+            }
+
+            playerActor.ShowIdleVisual();
+            enemyActor.ShowIdleVisual();
         }
 
-        private void ExecutePlayerAttack(int clearedTileCount)
+        private IEnumerator ExecutePlayerAttackRoutine(int clearedTileCount)
         {
             ResolvePlayerPassive(PassiveSkillTiming.BeforeAttack);
-            ApplyPlayerDamage(clearedTileCount);
+            yield return StartCoroutine(ApplyPlayerDamageRoutine(clearedTileCount));
             ResolvePlayerPassive(PassiveSkillTiming.AfterAttack);
         }
 
@@ -755,13 +771,16 @@ namespace CrystalMind.MatchMancer
             return Mathf.Max(0, Mathf.RoundToInt(damage));
         }
 
-        private bool EnemyAttack(bool canAttemptSpecial)
+        private IEnumerator EnemyAttackRoutine(bool canAttemptSpecial)
         {
-            int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
+            enemyAttackUsedSkillThisAction = false;
             HighlightEnemyTurn();
             enemyActor.PlayAttackVisual();
             enemyActor.PlayAttackMotion(playerActor.transform.position);
-            bool usedSkill = false;
+
+            yield return new WaitForSeconds(attackImpactDelay);
+
+            int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
 
             if (damage <= 0)
             {
@@ -789,10 +808,20 @@ namespace CrystalMind.MatchMancer
             {
                 enemyActor.PlaySkillVisual();
                 ApplyCurseToPlayer();
-                usedSkill = true;
+                enemyAttackUsedSkillThisAction = true;
             }
 
-            return usedSkill;
+            yield return new WaitForSeconds(postImpactHoldDelay);
+
+            if (playerActor.CurrentHp <= 0)
+            {
+                playerActor.PlayDeadVisual();
+                yield return new WaitForSeconds(deathHoldDelay);
+                yield break;
+            }
+
+            enemyActor.ShowIdleVisual();
+            playerActor.ShowIdleVisual();
         }
 
         private bool TryEnemySelfHeal()

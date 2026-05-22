@@ -159,6 +159,11 @@ namespace CrystalMind.MatchMancer
             visualController?.PlayGetHit();
         }
 
+        public void PlayDeadVisual()
+        {
+            visualController?.PlayDead();
+        }
+
         public void PlayHitMotion(Vector3 sourceWorldPosition)
         {
             combatMotionController?.PlayHitMotion(sourceWorldPosition);
