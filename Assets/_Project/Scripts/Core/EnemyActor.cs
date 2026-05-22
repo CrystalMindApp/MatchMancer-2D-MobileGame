@@ -179,6 +179,11 @@ namespace CrystalMind.MatchMancer
             visualController?.PlaySkill();
         }
 
+        public void PlayBattleStartVisual()
+        {
+            visualController?.PlayBattleStart();
+        }
+
         public void HideVisual()
         {
             visualController?.Hide();

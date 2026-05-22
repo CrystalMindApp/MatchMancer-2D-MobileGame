@@ -47,6 +47,7 @@ namespace CrystalMind.MatchMancer
         [Header("Polish References")]
         [SerializeField] private DamagePopupController damagePopupController;
         [SerializeField] private CinemachineTinyImpulse tinyImpulse;
+        [SerializeField] private GameplayIntroController gameplayIntroController;
 
         [Header("Debug")]
         [SerializeField] private bool enableCombatDebugLogs = true;
@@ -358,11 +359,18 @@ namespace CrystalMind.MatchMancer
         {
             SetBoardInputBlocked(true);
             StartGame();
+            SetBoardInputBlocked(true);
+            gameplayIntroController?.PrepareIntro();
 
             if (TransitionOverlayController.Instance != null)
             {
                 TransitionOverlayController.Instance.ReleaseSceneReady();
                 yield return TransitionOverlayController.Instance.WaitForTransitionComplete();
+            }
+
+            if (gameplayIntroController != null)
+            {
+                yield return StartCoroutine(gameplayIntroController.PlayIntroRoutine());
             }
 
             if (IsPlaying)
