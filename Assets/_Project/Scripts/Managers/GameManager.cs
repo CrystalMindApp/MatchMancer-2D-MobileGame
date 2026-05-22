@@ -66,6 +66,12 @@ namespace CrystalMind.MatchMancer
         private EnemyDefinition[] activeEnemyRoundSequence;
         private string currentStageName = "Stage";
 
+        private struct AttackDamageResult
+        {
+            public int Damage;
+            public bool IsCritical;
+        }
+
         #endregion
 
         #region Properties
@@ -632,6 +638,7 @@ namespace CrystalMind.MatchMancer
         {
             int healAmount = tileCount * playerActor.GreenHealPerTile * comboCount;
             playerActor.Heal(healAmount);
+            ShowHealPopup(healAmount, playerActor.DamagePopupAnchor);
             LogPlayer($"Green effect: healed Player for {healAmount}. Player HP: {playerActor.CurrentHp}");
         }
 
@@ -716,20 +723,20 @@ namespace CrystalMind.MatchMancer
 
             yield return new WaitForSeconds(attackImpactDelay);
 
-            int damage = CalculatePlayerDamage(clearedTileCount);
-            enemyActor.TakeDamage(damage);
+            AttackDamageResult damageResult = CalculatePlayerDamage(clearedTileCount);
+            enemyActor.TakeDamage(damageResult.Damage);
 
-            if (damage > 0)
+            if (damageResult.Damage > 0)
             {
                 enemyActor.PlayGetHitVisual();
                 enemyActor.PlayHitMotion(playerActor.transform.position);
-                ShowDamagePopup(damage, enemyActor.DamagePopupAnchor);
+                ShowDamagePopup(damageResult.Damage, enemyActor.DamagePopupAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
             }
 
             pendingCritChance = 0f;
 
-            LogEnemy($"Player deals {damage} damage. Enemy HP: {enemyActor.CurrentHp}");
+            LogEnemy($"Player deals {damageResult.Damage} damage. Enemy HP: {enemyActor.CurrentHp}");
 
             yield return new WaitForSeconds(postImpactHoldDelay);
 
@@ -751,7 +758,7 @@ namespace CrystalMind.MatchMancer
             ResolvePlayerPassive(PassiveSkillTiming.AfterAttack);
         }
 
-        private int CalculatePlayerDamage(int clearedTileCount)
+        private AttackDamageResult CalculatePlayerDamage(int clearedTileCount)
         {
             float damage = clearedTileCount * playerActor.BaseDamagePerTile * playerActor.AttackMultiplier;
             bool isCritical = Random.value < pendingCritChance;
@@ -759,7 +766,7 @@ namespace CrystalMind.MatchMancer
             if (playerActor.IsAttackMissed())
             {
                 LogCurse("Player attack missed due to Curse.");
-                return 0;
+                return new AttackDamageResult();
             }
 
             if (isCritical)
@@ -768,7 +775,11 @@ namespace CrystalMind.MatchMancer
                 LogPlayer("Red effect: critical hit!");
             }
 
-            return Mathf.Max(0, Mathf.RoundToInt(damage));
+            return new AttackDamageResult
+            {
+                Damage = Mathf.Max(0, Mathf.RoundToInt(damage)),
+                IsCritical = isCritical
+            };
         }
 
         private IEnumerator EnemyAttackRoutine(bool canAttemptSpecial)
@@ -780,31 +791,26 @@ namespace CrystalMind.MatchMancer
 
             yield return new WaitForSeconds(attackImpactDelay);
 
-            int damage = enemyActor.IsAttackMissed() ? 0 : enemyActor.BaseAttackDamage;
+            AttackDamageResult damageResult = CalculateEnemyDamage();
 
-            if (damage <= 0)
+            if (damageResult.Damage <= 0)
             {
                 LogCurse("Enemy attack missed due to Curse.");
             }
-            else if (Random.value < enemyActor.EnemyCritChance)
-            {
-                damage = Mathf.RoundToInt(damage * enemyActor.EnemyCritMultiplier);
-                LogEnemy("Enemy critical hit!");
-            }
 
-            playerActor.TakeDamage(damage);
+            playerActor.TakeDamage(damageResult.Damage);
 
-            if (damage > 0)
+            if (damageResult.Damage > 0)
             {
                 playerActor.PlayGetHitVisual();
                 playerActor.PlayHitMotion(enemyActor.transform.position);
-                ShowDamagePopup(damage, playerActor.DamagePopupAnchor);
+                ShowDamagePopup(damageResult.Damage, playerActor.DamagePopupAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
             }
 
-            LogEnemy($"Enemy attacks for {damage}. Player HP: {playerActor.CurrentHp}");
+            LogEnemy($"Enemy attacks for {damageResult.Damage}. Player HP: {playerActor.CurrentHp}");
 
-            if (canAttemptSpecial && damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
+            if (canAttemptSpecial && damageResult.Damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
             {
                 enemyActor.PlaySkillVisual();
                 ApplyCurseToPlayer();
@@ -840,6 +846,7 @@ namespace CrystalMind.MatchMancer
 
             enemyActor.Heal(healAmount);
             enemyActor.PlaySkillVisual();
+            ShowHealPopup(healAmount, enemyActor.DamagePopupAnchor);
             LogEnemy($"Enemy heals for {healAmount}. Enemy HP: {enemyActor.CurrentHp}");
             return true;
         }
@@ -886,9 +893,48 @@ namespace CrystalMind.MatchMancer
             enemySkillTurnsRemaining = Mathf.Max(0, enemySkillTurnsRemaining - 1);
         }
 
-        private void ShowDamagePopup(int amount, Transform anchor)
+        private AttackDamageResult CalculateEnemyDamage()
         {
-            damagePopupController?.ShowDamage(amount, anchor);
+            if (enemyActor.IsAttackMissed())
+            {
+                return new AttackDamageResult();
+            }
+
+            int damage = enemyActor.BaseAttackDamage;
+            bool isCritical = Random.value < enemyActor.EnemyCritChance;
+
+            if (isCritical)
+            {
+                damage = Mathf.RoundToInt(damage * enemyActor.EnemyCritMultiplier);
+                LogEnemy("Enemy critical hit!");
+            }
+
+            return new AttackDamageResult
+            {
+                Damage = Mathf.Max(0, damage),
+                IsCritical = isCritical
+            };
+        }
+
+        private void ShowDamagePopup(int amount, Transform anchor, bool isCritical)
+        {
+            if (damagePopupController == null)
+            {
+                return;
+            }
+
+            if (isCritical)
+            {
+                damagePopupController.ShowCriticalDamage(amount, anchor);
+                return;
+            }
+
+            damagePopupController.ShowDamage(amount, anchor);
+        }
+
+        private void ShowHealPopup(int amount, Transform anchor)
+        {
+            damagePopupController?.ShowHeal(amount, anchor);
         }
 
         private bool ShouldPlayerActFirst()
