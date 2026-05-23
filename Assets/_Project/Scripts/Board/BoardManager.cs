@@ -38,6 +38,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float boardIntroStaggerDelay = 0.004f;
         [SerializeField] private bool boardIntroUseUnscaledTime;
 
+
         [Header("Tile Effects")]
         [SerializeField] private GameObject tileDestroyEffectPrefab;
         [SerializeField] private GameObject bombTileDestroyEffectPrefab;
@@ -255,7 +256,7 @@ namespace CrystalMind.MatchMancer
             }
 
             Tile targetTile = normalTiles[UnityEngine.Random.Range(0, normalTiles.Count)];
-            targetTile.SetSpecialType(SpecialTileType.Bomb);
+            SetTileSpecialType(targetTile, SpecialTileType.Bomb, true);
             Debug.Log($"BoardManager: Passive created Bomb at [{targetTile.Row}, {targetTile.Col}].");
             return true;
         }
@@ -521,6 +522,7 @@ namespace CrystalMind.MatchMancer
             List<MatchGroup> matchGroups = matchFinder.FindMatchGroups();
             if (matchGroups.Count == 0)
             {
+                PlayFailedSwapSfx();
                 SwapTiles(firstTile, secondTile, false);
                 yield return StartCoroutine(AnimateTileSwap(firstTile, secondTile));
 
@@ -564,7 +566,9 @@ namespace CrystalMind.MatchMancer
                     yield break;
                 }
 
+                int comboLevel = comboOffset + loopCount + 1;
                 UpdateComboFeedback(matchGroups.Count);
+                PlayComboSfx(comboLevel);
 
                 ClearStepResult clearResult = new ClearStepResult();
 
@@ -611,6 +615,12 @@ namespace CrystalMind.MatchMancer
             ClearStepResult clearResult = new ClearStepResult();
             yield return StartCoroutine(ClearTilesAndGetResultRoutine(tilesToClear, result => clearResult = result));
             lastResolveClearedTileCount = clearResult.ClearedCount;
+
+            if (clearResult.ClearedCount > 0)
+            {
+                PlayComboSfx(1);
+            }
+
             gameManager?.OnTilesCleared(clearResult.ClearedCount);
             gameManager?.OnTileColorsCleared(clearResult.ColorCounts, 1);
 
@@ -811,8 +821,7 @@ namespace CrystalMind.MatchMancer
                 }
 
                 SpecialTileType specialType = ClassifySpecialTileType(group);
-                specialTile.SetSpecialType(specialType);
-                PlaySpecialTileSpawnSfx();
+                SetTileSpecialType(specialTile, specialType, true);
                 tilesToClear.Remove(specialTile);
             }
 
@@ -1098,7 +1107,6 @@ namespace CrystalMind.MatchMancer
             }
 
             onComplete?.Invoke(result);
-            PlayMatchClearSfx(result.ClearedCount);
             yield return StartCoroutine(PlayClearVisualsRoutine(validTilesToRelease, destroyContexts));
 
             foreach (Tile tile in validTilesToRelease)
@@ -1157,6 +1165,17 @@ namespace CrystalMind.MatchMancer
                 }
             }
         }
+
+        private void PlayComboSfx(int comboLevel)
+        {
+            if (comboLevel <= 0)
+            {
+                return;
+            }
+
+            GetSceneAudioLibrary()?.PlayComboLevel(comboLevel);
+        }
+
 
         private TileDestroyContext GetDestroyContext(Tile tile, Dictionary<Tile, TileDestroyContext> destroyContexts)
         {
@@ -1271,19 +1290,32 @@ namespace CrystalMind.MatchMancer
             }
         }
 
-        private void PlayMatchClearSfx(int clearedCount)
+        private void PlayFailedSwapSfx()
         {
-            if (clearedCount <= 0)
-            {
-                return;
-            }
-
-            GetSceneAudioLibrary()?.PlayMatchClear();
+            GetSceneAudioLibrary()?.PlayFailedSwap();
         }
 
         private void PlaySpecialTileSpawnSfx()
         {
             GetSceneAudioLibrary()?.PlaySpecialTileSpawn();
+        }
+
+        private bool SetTileSpecialType(Tile tile, SpecialTileType specialType, bool playSpawnSfx)
+        {
+            if (tile == null)
+            {
+                return false;
+            }
+
+            bool createsSpecial = !tile.IsSpecial && specialType != SpecialTileType.None;
+            tile.SetSpecialType(specialType);
+
+            if (createsSpecial && playSpawnSfx)
+            {
+                PlaySpecialTileSpawnSfx();
+            }
+
+            return createsSpecial;
         }
 
         private SceneAudioLibrary GetSceneAudioLibrary()

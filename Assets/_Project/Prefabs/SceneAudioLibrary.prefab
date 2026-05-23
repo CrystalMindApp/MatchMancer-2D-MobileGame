@@ -42,7 +42,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5132ec38e2bc4874bad566ab515e99c8, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.SceneAudioLibrary
-  sceneBgm: {fileID: 8300000, guid: 431c1abca47c17c438fe6872c4659591, type: 3}
-  buttonClickSfx: {fileID: 8300000, guid: 9b5f7295c24696747af72c676a751640, type: 3}
+  sceneBgm: {fileID: 8300000, guid: f1b42613cfb0f5147a9c85fd16f133f1, type: 3}
+  buttonClickSfx: {fileID: 8300000, guid: e5bfd87fce6198644877ee140fb6f7b5, type: 3}
+  panelOpenSfx: {fileID: 8300000, guid: 9613323e1c5d28a4cb6bf9e2c4b07fd1, type: 3}
+  panelCloseSfx: {fileID: 8300000, guid: e19d87c67d799b841866265d46609c3b, type: 3}
+  buttonClickMinInterval: 0.05
+  matchClearSfx: {fileID: 8300000, guid: a7132073ae4d9aa4b9f4bbf0f82d95c5, type: 3}
+  specialTileSpawnSfx: {fileID: 8300000, guid: 1e027411926062c4a8d856b05bf8c023, type: 3}
+  combo1Sfx: {fileID: 8300000, guid: 1002ac00fb211ff4cb8d463c0052653b, type: 3}
+  combo2Sfx: {fileID: 8300000, guid: 43be79a0ec2a508448084c50d99ea30c, type: 3}
+  combo3Sfx: {fileID: 8300000, guid: c400850ef3ff3e443aa601b82e8aec42, type: 3}
+  combo4Sfx: {fileID: 8300000, guid: 955e4fb0d9f137546ae6466025b14cb9, type: 3}
+  combo5Sfx: {fileID: 8300000, guid: 5164bec2cfd25e047941e5c53c5f817b, type: 3}
+  combo6Sfx: {fileID: 8300000, guid: 3f74790c821fa4b408591ec520329792, type: 3}
+  combo7Sfx: {fileID: 8300000, guid: 6ca9236e58da10040946a92898a0e4a2, type: 3}
+  combo8Sfx: {fileID: 8300000, guid: 90d735eb0e798c84d9115a1e4fc6298f, type: 3}
+  failedSwapSfx: {fileID: 8300000, guid: 66eec09ccfadb724d9ce3f384a099ac8, type: 3}
+  winSfx: {fileID: 8300000, guid: c711f78f0397a8243a6f9488a6a6a8dd, type: 3}
+  loseSfx: {fileID: 8300000, guid: e4979ccef0d6962468b2617667c5e7c2, type: 3}
+  gameplaySfxMinInterval: 0.05

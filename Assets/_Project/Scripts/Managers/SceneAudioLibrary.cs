@@ -18,7 +18,15 @@ namespace CrystalMind.MatchMancer
         [Header("Gameplay SFX")]
         [SerializeField] private AudioClip matchClearSfx;
         [SerializeField] private AudioClip specialTileSpawnSfx;
-        [SerializeField] private AudioClip comboSfx;
+        [SerializeField] private AudioClip combo1Sfx;
+        [SerializeField] private AudioClip combo2Sfx;
+        [SerializeField] private AudioClip combo3Sfx;
+        [SerializeField] private AudioClip combo4Sfx;
+        [SerializeField] private AudioClip combo5Sfx;
+        [SerializeField] private AudioClip combo6Sfx;
+        [SerializeField] private AudioClip combo7Sfx;
+        [SerializeField] private AudioClip combo8Sfx;
+        [SerializeField] private AudioClip failedSwapSfx;
         [SerializeField] private AudioClip winSfx;
         [SerializeField] private AudioClip loseSfx;
         [SerializeField, Min(0f)] private float gameplaySfxMinInterval = 0.05f;
@@ -93,7 +101,18 @@ namespace CrystalMind.MatchMancer
 
         public void PlayCombo()
         {
-            PlaySfx(comboSfx, gameplaySfxMinInterval);
+            PlayComboLevel(1);
+        }
+
+        public void PlayComboLevel(int comboLevel)
+        {
+            AudioClip comboClip = GetComboClip(comboLevel);
+            PlaySfx(comboClip != null ? comboClip : matchClearSfx, gameplaySfxMinInterval);
+        }
+
+        public void PlayFailedSwap()
+        {
+            PlaySfx(failedSwapSfx, gameplaySfxMinInterval);
         }
 
         public void PlayResult(bool isWin)
@@ -113,6 +132,23 @@ namespace CrystalMind.MatchMancer
             }
 
             AudioManager.Instance.PlaySfx(clip, minInterval);
+        }
+
+        private AudioClip GetComboClip(int comboLevel)
+        {
+            int safeComboLevel = Mathf.Clamp(comboLevel, 1, 8);
+
+            return safeComboLevel switch
+            {
+                1 => combo1Sfx,
+                2 => combo2Sfx,
+                3 => combo3Sfx,
+                4 => combo4Sfx,
+                5 => combo5Sfx,
+                6 => combo6Sfx,
+                7 => combo7Sfx,
+                _ => combo8Sfx
+            };
         }
 
         #endregion
