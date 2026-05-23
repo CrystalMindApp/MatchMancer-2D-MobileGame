@@ -49,6 +49,16 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private CinemachineTinyImpulse tinyImpulse;
         [SerializeField] private GameplayIntroController gameplayIntroController;
 
+        [Header("Blood Hit Effects")]
+        [SerializeField] private GameObject bloodHitEffectPrefab;
+        [SerializeField] private Transform bloodHitEffectParent;
+        [SerializeField, Min(0)] private int bloodHitMinCount = 1;
+        [SerializeField, Min(0)] private int bloodHitMaxCount = 3;
+        [SerializeField, Min(0f)] private float bloodHitSpawnRadius = 0.25f;
+        [SerializeField, Min(0f)] private float bloodHitLifetime = 1f;
+        [SerializeField, Min(1f)] private float criticalBloodScaleMultiplier = 1.5f;
+        [SerializeField] private Color bloodHitTint = new Color(1f, 0.05f, 0.02f, 1f);
+
         [Header("Debug")]
         [SerializeField] private bool enableCombatDebugLogs = true;
 
@@ -756,6 +766,7 @@ namespace CrystalMind.MatchMancer
                 enemyActor.PlayGetHitVisual();
                 enemyActor.PlayHitMotion(playerActor.transform.position);
                 ShowDamagePopup(damageResult.Damage, enemyActor.DamagePopupAnchor, damageResult.IsCritical);
+                SpawnBloodHitEffects(enemyActor.DamagePopupAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
             }
 
@@ -830,6 +841,7 @@ namespace CrystalMind.MatchMancer
                 playerActor.PlayGetHitVisual();
                 playerActor.PlayHitMotion(enemyActor.transform.position);
                 ShowDamagePopup(damageResult.Damage, playerActor.DamagePopupAnchor, damageResult.IsCritical);
+                SpawnBloodHitEffects(playerActor.DamagePopupAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
             }
 
@@ -960,6 +972,52 @@ namespace CrystalMind.MatchMancer
         private void ShowHealPopup(int amount, Transform anchor)
         {
             damagePopupController?.ShowHeal(amount, anchor);
+        }
+
+        private void SpawnBloodHitEffects(Transform anchor, bool isCritical)
+        {
+            if (bloodHitEffectPrefab == null)
+            {
+                return;
+            }
+
+            Transform effectAnchor = anchor != null ? anchor : transform;
+            int minCount = Mathf.Max(0, bloodHitMinCount);
+            int maxCount = Mathf.Max(minCount, bloodHitMaxCount);
+            int effectCount = UnityEngine.Random.Range(minCount, maxCount + 1);
+            float scaleMultiplier = isCritical ? criticalBloodScaleMultiplier : 1f;
+
+            for (int i = 0; i < effectCount; i++)
+            {
+                Vector2 randomOffset = UnityEngine.Random.insideUnitCircle * bloodHitSpawnRadius;
+                Vector3 spawnPosition = effectAnchor.position + new Vector3(randomOffset.x, randomOffset.y, 0f);
+                GameObject effectInstance = Instantiate(bloodHitEffectPrefab, spawnPosition, Quaternion.identity, bloodHitEffectParent);
+                effectInstance.transform.localScale *= scaleMultiplier;
+                ApplyBloodHitTint(effectInstance);
+
+                if (bloodHitLifetime > 0f)
+                {
+                    Destroy(effectInstance, bloodHitLifetime);
+                }
+            }
+        }
+
+        private void ApplyBloodHitTint(GameObject effectInstance)
+        {
+            if (effectInstance == null)
+            {
+                return;
+            }
+
+            VfxMaterialTintApplier[] materialTintAppliers = effectInstance.GetComponentsInChildren<VfxMaterialTintApplier>(true);
+
+            foreach (VfxMaterialTintApplier materialTintApplier in materialTintAppliers)
+            {
+                if (materialTintApplier != null)
+                {
+                    materialTintApplier.ApplyTint(bloodHitTint);
+                }
+            }
         }
 
         private bool ShouldPlayerActFirst()

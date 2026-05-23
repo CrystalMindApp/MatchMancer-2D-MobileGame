@@ -38,6 +38,14 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float boardIntroStaggerDelay = 0.004f;
         [SerializeField] private bool boardIntroUseUnscaledTime;
 
+        [Header("Tile Effects")]
+        [SerializeField] private GameObject tileDestroyEffectPrefab;
+        [SerializeField] private GameObject bombTileDestroyEffectPrefab;
+        [SerializeField] private GameObject horizontalTileDestroyEffectPrefab;
+        [SerializeField] private GameObject verticalTileDestroyEffectPrefab;
+        [SerializeField, Min(0f)] private float tileDestroyEffectLifetime = 1f;
+        [SerializeField] private Transform tileDestroyEffectParent;
+
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
 
@@ -772,6 +780,7 @@ namespace CrystalMind.MatchMancer
         {
             HashSet<Tile> tilesToClear = new HashSet<Tile>();
             HashSet<Tile> activatedSpecialTiles = new HashSet<Tile>();
+            Dictionary<Tile, TileDestroyContext> destroyContexts = new Dictionary<Tile, TileDestroyContext>();
 
             foreach (MatchGroup group in matchGroups)
             {
@@ -787,7 +796,7 @@ namespace CrystalMind.MatchMancer
 
                 foreach (Tile tile in group.Tiles)
                 {
-                    ActivateSpecialTileIfNeeded(tile, tilesToClear, activatedSpecialTiles);
+                    ActivateSpecialTileIfNeeded(tile, tilesToClear, activatedSpecialTiles, destroyContexts);
                 }
 
                 if (groupHasExistingSpecial || !ShouldCreateSpecialTile(group))
@@ -807,7 +816,7 @@ namespace CrystalMind.MatchMancer
                 tilesToClear.Remove(specialTile);
             }
 
-            yield return StartCoroutine(ClearTilesAndGetResultRoutine(new List<Tile>(tilesToClear), onComplete));
+            yield return StartCoroutine(ClearTilesAndGetResultRoutine(new List<Tile>(tilesToClear), onComplete, destroyContexts));
         }
 
         private List<Tile> GetTilesFromMatchGroups(List<MatchGroup> matchGroups)
@@ -942,7 +951,11 @@ namespace CrystalMind.MatchMancer
             return closestTile;
         }
 
-        private void ActivateSpecialTileIfNeeded(Tile tile, HashSet<Tile> tilesToClear, HashSet<Tile> activatedSpecialTiles)
+        private void ActivateSpecialTileIfNeeded(
+            Tile tile,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts)
         {
             if (tile == null || !tile.IsSpecial || activatedSpecialTiles.Contains(tile))
             {
@@ -950,51 +963,76 @@ namespace CrystalMind.MatchMancer
             }
 
             activatedSpecialTiles.Add(tile);
+            TileDestroyContext sourceContext = new TileDestroyContext(tile.SpecialType, tile.Type);
+            SetDestroyContext(tile, sourceContext, destroyContexts);
 
             switch (tile.SpecialType)
             {
                 case SpecialTileType.LineHorizontal:
-                    AddRowToClear(tile.Row, tilesToClear, activatedSpecialTiles);
+                    AddRowToClear(tile.Row, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     break;
 
                 case SpecialTileType.LineVertical:
-                    AddColumnToClear(tile.Col, tilesToClear, activatedSpecialTiles);
+                    AddColumnToClear(tile.Col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     break;
 
                 case SpecialTileType.Bomb:
-                    AddAreaToClear(tile.Row, tile.Col, 1, tilesToClear, activatedSpecialTiles);
+                    AddAreaToClear(tile.Row, tile.Col, 1, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     break;
             }
         }
 
-        private void AddRowToClear(int row, HashSet<Tile> tilesToClear, HashSet<Tile> activatedSpecialTiles)
+        private void AddRowToClear(
+            int row,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
         {
             for (int col = 0; col < cols; col++)
             {
-                AddTileToClear(row, col, tilesToClear, activatedSpecialTiles);
+                AddTileToClear(row, col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
             }
         }
 
-        private void AddColumnToClear(int col, HashSet<Tile> tilesToClear, HashSet<Tile> activatedSpecialTiles)
+        private void AddColumnToClear(
+            int col,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
         {
             for (int row = 0; row < rows; row++)
             {
-                AddTileToClear(row, col, tilesToClear, activatedSpecialTiles);
+                AddTileToClear(row, col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
             }
         }
 
-        private void AddAreaToClear(int centerRow, int centerCol, int radius, HashSet<Tile> tilesToClear, HashSet<Tile> activatedSpecialTiles)
+        private void AddAreaToClear(
+            int centerRow,
+            int centerCol,
+            int radius,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
         {
             for (int row = centerRow - radius; row <= centerRow + radius; row++)
             {
                 for (int col = centerCol - radius; col <= centerCol + radius; col++)
                 {
-                    AddTileToClear(row, col, tilesToClear, activatedSpecialTiles);
+                    AddTileToClear(row, col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                 }
             }
         }
 
-        private void AddTileToClear(int row, int col, HashSet<Tile> tilesToClear, HashSet<Tile> activatedSpecialTiles)
+        private void AddTileToClear(
+            int row,
+            int col,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
         {
             Tile tile = GetTile(row, col);
             if (tile == null)
@@ -1003,10 +1041,27 @@ namespace CrystalMind.MatchMancer
             }
 
             tilesToClear.Add(tile);
-            ActivateSpecialTileIfNeeded(tile, tilesToClear, activatedSpecialTiles);
+            SetDestroyContext(tile, sourceContext, destroyContexts);
+            ActivateSpecialTileIfNeeded(tile, tilesToClear, activatedSpecialTiles, destroyContexts);
         }
 
-        private IEnumerator ClearTilesAndGetResultRoutine(List<Tile> tilesToClear, Action<ClearStepResult> onComplete)
+        private void SetDestroyContext(
+            Tile tile,
+            TileDestroyContext sourceContext,
+            Dictionary<Tile, TileDestroyContext> destroyContexts)
+        {
+            if (tile == null || destroyContexts == null || destroyContexts.ContainsKey(tile))
+            {
+                return;
+            }
+
+            destroyContexts[tile] = sourceContext;
+        }
+
+        private IEnumerator ClearTilesAndGetResultRoutine(
+            List<Tile> tilesToClear,
+            Action<ClearStepResult> onComplete,
+            Dictionary<Tile, TileDestroyContext> destroyContexts = null)
         {
             if (tilesToClear == null || tilesToClear.Count == 0)
             {
@@ -1044,7 +1099,7 @@ namespace CrystalMind.MatchMancer
 
             onComplete?.Invoke(result);
             PlayMatchClearSfx(result.ClearedCount);
-            yield return StartCoroutine(PlayClearVisualsRoutine(validTilesToRelease));
+            yield return StartCoroutine(PlayClearVisualsRoutine(validTilesToRelease, destroyContexts));
 
             foreach (Tile tile in validTilesToRelease)
             {
@@ -1055,7 +1110,7 @@ namespace CrystalMind.MatchMancer
             }
         }
 
-        private IEnumerator PlayClearVisualsRoutine(List<Tile> tilesToClear)
+        private IEnumerator PlayClearVisualsRoutine(List<Tile> tilesToClear, Dictionary<Tile, TileDestroyContext> destroyContexts)
         {
             if (tilesToClear == null || tilesToClear.Count == 0)
             {
@@ -1068,6 +1123,7 @@ namespace CrystalMind.MatchMancer
             {
                 if (tile != null)
                 {
+                    SpawnTileDestroyEffect(tile, GetDestroyContext(tile, destroyContexts));
                     runningAnimations.Add(StartCoroutine(tile.PlayDestroyVisual()));
                 }
             }
@@ -1099,6 +1155,119 @@ namespace CrystalMind.MatchMancer
                     boardTiles[row, col] = null;
                     ReleaseTileToPool(tile);
                 }
+            }
+        }
+
+        private TileDestroyContext GetDestroyContext(Tile tile, Dictionary<Tile, TileDestroyContext> destroyContexts)
+        {
+            if (tile != null && destroyContexts != null && destroyContexts.TryGetValue(tile, out TileDestroyContext destroyContext))
+            {
+                return destroyContext;
+            }
+
+            return new TileDestroyContext(tile != null ? tile.SpecialType : SpecialTileType.None, tile != null ? tile.Type : TileType.Red);
+        }
+
+        private void SpawnTileDestroyEffect(Tile tile, TileDestroyContext destroyContext)
+        {
+            if (tile == null)
+            {
+                return;
+            }
+
+            GameObject effectPrefab = GetTileDestroyEffectPrefab(destroyContext.SpecialType);
+            if (effectPrefab == null)
+            {
+                return;
+            }
+
+            GameObject effectInstance = Instantiate(effectPrefab, tile.transform.position, Quaternion.identity, tileDestroyEffectParent);
+            TintTileDestroyEffect(effectInstance, GetTileEffectColor(destroyContext.TileType));
+
+            if (tileDestroyEffectLifetime > 0f)
+            {
+                Destroy(effectInstance, tileDestroyEffectLifetime);
+            }
+        }
+
+        private GameObject GetTileDestroyEffectPrefab(SpecialTileType specialType)
+        {
+            switch (specialType)
+            {
+                case SpecialTileType.Bomb:
+                    return bombTileDestroyEffectPrefab != null ? bombTileDestroyEffectPrefab : tileDestroyEffectPrefab;
+
+                case SpecialTileType.LineHorizontal:
+                    return horizontalTileDestroyEffectPrefab != null ? horizontalTileDestroyEffectPrefab : tileDestroyEffectPrefab;
+
+                case SpecialTileType.LineVertical:
+                    return verticalTileDestroyEffectPrefab != null ? verticalTileDestroyEffectPrefab : tileDestroyEffectPrefab;
+
+                default:
+                    return tileDestroyEffectPrefab;
+            }
+        }
+
+        private void TintTileDestroyEffect(GameObject effectInstance, Color tintColor)
+        {
+            if (effectInstance == null)
+            {
+                return;
+            }
+
+            VfxMaterialTintApplier[] materialTintAppliers = effectInstance.GetComponentsInChildren<VfxMaterialTintApplier>(true);
+
+            if (materialTintAppliers.Length > 0)
+            {
+                foreach (VfxMaterialTintApplier materialTintApplier in materialTintAppliers)
+                {
+                    if (materialTintApplier != null)
+                    {
+                        materialTintApplier.ApplyTint(tintColor);
+                    }
+                }
+
+                return;
+            }
+
+            SpriteRenderer[] spriteRenderers = effectInstance.GetComponentsInChildren<SpriteRenderer>(true);
+
+            foreach (SpriteRenderer spriteRenderer in spriteRenderers)
+            {
+                if (spriteRenderer == null)
+                {
+                    continue;
+                }
+
+                Color color = spriteRenderer.color;
+                color.r *= tintColor.r;
+                color.g *= tintColor.g;
+                color.b *= tintColor.b;
+                spriteRenderer.color = color;
+            }
+        }
+
+        private Color GetTileEffectColor(TileType tileType)
+        {
+            switch (tileType)
+            {
+                case TileType.Red:
+                    return Color.red;
+
+                case TileType.Green:
+                    return Color.green;
+
+                case TileType.Blue:
+                    return Color.blue;
+
+                case TileType.Yellow:
+                    return Color.yellow;
+
+                case TileType.Purple:
+                    return Color.magenta;
+
+                default:
+                    return Color.white;
             }
         }
 
@@ -1470,6 +1639,18 @@ namespace CrystalMind.MatchMancer
 
                 ColorCounts[tileType]++;
             }
+        }
+
+        private readonly struct TileDestroyContext
+        {
+            public TileDestroyContext(SpecialTileType specialType, TileType tileType)
+            {
+                SpecialType = specialType;
+                TileType = tileType;
+            }
+
+            public SpecialTileType SpecialType { get; }
+            public TileType TileType { get; }
         }
 
         #endregion
