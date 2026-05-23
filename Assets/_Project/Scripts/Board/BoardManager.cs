@@ -38,6 +38,9 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float boardIntroStaggerDelay = 0.004f;
         [SerializeField] private bool boardIntroUseUnscaledTime;
 
+        [Header("Combo Polish")]
+        [SerializeField, Min(1)] private int maxComboImpactLevel = 5;
+        [SerializeField, Min(0f)] private float maxComboShakeForce = 0.08f;
 
         [Header("Tile Effects")]
         [SerializeField] private GameObject tileDestroyEffectPrefab;
@@ -57,6 +60,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private GameManager gameManager;
         [SerializeField] private BoardComboTextController comboTextController;
         [SerializeField] private SceneAudioLibrary sceneAudioLibrary;
+        [SerializeField] private CinemachineTinyImpulse tinyImpulse;
 
         // Cache
         private Tile[,] boardTiles;
@@ -70,7 +74,9 @@ namespace CrystalMind.MatchMancer
         private bool isResolving;
         private bool isSwapping;
         private bool isInputBlocked;
+        private bool isExternalInputBlocked;
         private bool spawnBoardTilesAtIntroScale;
+        private bool hasPlayedMaxComboImpact;
         private int lastResolveClearedTileCount;
         private int currentResolveComboGroupCount;
 
@@ -97,7 +103,11 @@ namespace CrystalMind.MatchMancer
         public int Rows => rows;
         public int Cols => cols;
         public bool IsResolving => isResolving;
-        public bool CanReceiveInput => !isResolving && !isSwapping && !isInputBlocked && (gameManager == null || gameManager.IsPlaying);
+        public bool CanReceiveInput => !isResolving &&
+            !isSwapping &&
+            !isInputBlocked &&
+            !isExternalInputBlocked &&
+            (gameManager == null || gameManager.IsPlaying);
 
         #endregion
 
@@ -236,7 +246,7 @@ namespace CrystalMind.MatchMancer
 
         public void SetInputBlocked(bool blocked)
         {
-            isInputBlocked = blocked;
+            isExternalInputBlocked = blocked;
 
             if (blocked)
             {
@@ -569,6 +579,7 @@ namespace CrystalMind.MatchMancer
                 int comboLevel = comboOffset + loopCount + 1;
                 UpdateComboFeedback(matchGroups.Count);
                 PlayComboSfx(comboLevel);
+                TryPlayMaxComboImpact(comboLevel);
 
                 ClearStepResult clearResult = new ClearStepResult();
 
@@ -619,6 +630,7 @@ namespace CrystalMind.MatchMancer
             if (clearResult.ClearedCount > 0)
             {
                 PlayComboSfx(1);
+                TryPlayMaxComboImpact(1);
             }
 
             gameManager?.OnTilesCleared(clearResult.ClearedCount);
@@ -749,6 +761,7 @@ namespace CrystalMind.MatchMancer
         private void ResetComboFeedback()
         {
             currentResolveComboGroupCount = 0;
+            hasPlayedMaxComboImpact = false;
             comboTextController?.HideImmediate();
         }
 
@@ -1176,6 +1189,16 @@ namespace CrystalMind.MatchMancer
             GetSceneAudioLibrary()?.PlayComboLevel(comboLevel);
         }
 
+        private void TryPlayMaxComboImpact(int comboLevel)
+        {
+            if (hasPlayedMaxComboImpact || comboLevel < maxComboImpactLevel)
+            {
+                return;
+            }
+
+            hasPlayedMaxComboImpact = true;
+            tinyImpulse?.Shake(maxComboShakeForce);
+        }
 
         private TileDestroyContext GetDestroyContext(Tile tile, Dictionary<Tile, TileDestroyContext> destroyContexts)
         {

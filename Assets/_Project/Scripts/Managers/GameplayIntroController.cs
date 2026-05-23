@@ -15,6 +15,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(1f)] private float enemyBattleStartPunchScale = 1.06f;
         [SerializeField, Min(0f)] private float battleStartShakeForce;
         [SerializeField, Min(0.01f)] private float battleStartShakeInterval = 0.1f;
+        [SerializeField] private bool enableBoardManagerOnBattleStart = true;
 
         [Header("References")]
         [SerializeField] private PlayerActor playerActor;
@@ -22,6 +23,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Transform playerIntroStartPoint;
         [SerializeField] private Transform playerBattlePoint;
         [SerializeField] private CinemachineTinyImpulse tinyImpulse;
+        [SerializeField] private BoardManager boardManager;
 
         // Cache
 
@@ -49,6 +51,7 @@ namespace CrystalMind.MatchMancer
 
             playerActor.ShowIdleVisual();
             enemyActor?.ShowIdleVisual();
+            boardManager?.SetInputBlocked(true);
         }
 
         public IEnumerator PlayIntroRoutine()
@@ -110,6 +113,7 @@ namespace CrystalMind.MatchMancer
         {
             playerActor?.PlayBattleStartVisual();
             enemyActor?.PlayBattleStartVisual();
+            StartBoardForBattleBeat();
 
             float safeDuration = Mathf.Max(0f, battleStartHoldDuration);
 
@@ -150,6 +154,21 @@ namespace CrystalMind.MatchMancer
             {
                 enemyTransform.localScale = originalEnemyScale;
             }
+        }
+
+        private void StartBoardForBattleBeat()
+        {
+            if (!enableBoardManagerOnBattleStart || boardManager == null)
+            {
+                return;
+            }
+
+            if (!boardManager.enabled)
+            {
+                boardManager.enabled = true;
+            }
+
+            boardManager.SetInputBlocked(true);
         }
 
         private void CacheFallbackBattlePosition()
