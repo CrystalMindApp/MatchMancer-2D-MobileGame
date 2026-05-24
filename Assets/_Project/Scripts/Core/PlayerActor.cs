@@ -13,6 +13,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private ActorTurnScaleHighlighter turnScaleHighlighter;
         [SerializeField] private ActorCombatMotionController combatMotionController;
         [SerializeField] private Transform damagePopupAnchor;
+        [SerializeField] private Transform bloodHitAnchor;
 
         // State
         private int currentHp;
@@ -53,6 +54,7 @@ namespace CrystalMind.MatchMancer
         public bool PassiveReady => passiveReady;
         public bool PassiveTriggeredThisTurn => passiveTriggeredThisTurn;
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
+        public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
 
         #endregion
 

@@ -13,6 +13,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private ActorTurnScaleHighlighter turnScaleHighlighter;
         [SerializeField] private ActorCombatMotionController combatMotionController;
         [SerializeField] private Transform damagePopupAnchor;
+        [SerializeField] private Transform bloodHitAnchor;
 
         // State
         private int currentHp;
@@ -37,9 +38,11 @@ namespace CrystalMind.MatchMancer
         public float EnemySelfHealChance => combatProfile != null ? combatProfile.EnemySelfHealChance : 0f;
         public int EnemySelfHealAmount => combatProfile != null ? combatProfile.EnemySelfHealAmount : 0;
         public string EnemySkillAnnouncementText => combatProfile != null ? combatProfile.EnemySkillAnnouncementText : "Enemy Turn";
+        public string EnemyDisruptDescription => combatProfile != null ? combatProfile.EnemyDisruptDescription : string.Empty;
         public int EnemySkillCooldownTurns => combatProfile != null ? combatProfile.EnemySkillCooldownTurns : 0;
         public float EnemyActionDelay => combatProfile != null ? combatProfile.EnemyActionDelay : 0f;
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
+        public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
 
         #endregion
 
@@ -217,29 +220,30 @@ namespace CrystalMind.MatchMancer
 
         private void ApplyDefinitionVisuals(EnemyDefinition definition)
         {
-            if (definition == null || !definition.HasVisualSprites)
+            if (definition == null || !definition.HasVisualSetup)
             {
                 return;
             }
 
             if (visualController == null)
             {
-                Debug.LogWarning($"EnemyActor: Missing ActorSpriteSwapController. Enemy visual sprites were not applied for {definition.DisplayName}.");
+                Debug.LogWarning($"EnemyActor: Missing ActorSpriteSwapController. Enemy visual setup was not applied for {definition.DisplayName}.");
                 return;
             }
 
-            if (definition.IdleSprite == null)
+            if (definition.DefaultIdleSprite == null)
             {
-                Debug.LogWarning($"EnemyActor: EnemyDefinition '{definition.DisplayName}' has visual sprites but no idle sprite.");
+                Debug.LogWarning($"EnemyActor: EnemyDefinition '{definition.DisplayName}' has visual setup but no default idle sprite.");
             }
 
-            visualController.ApplySprites(
-                definition.IdleSprite,
-                definition.AttackSprite,
-                definition.SkillSprite,
-                definition.GetHitSprite);
+            if (definition.AnimatorController == null)
+            {
+                Debug.LogWarning($"EnemyActor: EnemyDefinition '{definition.DisplayName}' has visual setup but no RuntimeAnimatorController.");
+            }
 
-            Debug.Log($"Enemy visual sprites applied: {definition.DisplayName}");
+            visualController.ApplyVisualSetup(definition.DefaultIdleSprite, definition.AnimatorController);
+
+            Debug.Log($"Enemy visual setup applied: {definition.DisplayName}");
         }
 
         #endregion

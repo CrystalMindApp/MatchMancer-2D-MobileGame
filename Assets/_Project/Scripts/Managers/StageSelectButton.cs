@@ -24,6 +24,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private CanvasGroup lockCanvasGroup;
         [SerializeField] private Sprite lockedSprite;
         [SerializeField] private Sprite unlockedSprite;
+        [SerializeField] private Image bossClearStampImage;
+        [SerializeField] private CanvasGroup bossClearStampCanvasGroup;
 
         // Cache
 
@@ -103,6 +105,7 @@ namespace CrystalMind.MatchMancer
 
             SetLockPresentation(showLockedPresentation, showLockedPresentation ? lockedSprite : unlockedSprite, 1f);
             SetStarsVisual(stars);
+            SetBossClearStampVisible(stars >= 3, stars >= 3 ? 1f : 0f);
         }
 
         public void SetInputBlocked(bool blocked)
@@ -207,6 +210,44 @@ namespace CrystalMind.MatchMancer
             isUnlockAnimating = false;
         }
 
+        public IEnumerator PlayBossClearStampTransition(float stampScale, float stampDuration)
+        {
+            if (bossClearStampImage == null)
+            {
+                yield break;
+            }
+
+            Transform stampTransform = bossClearStampImage.transform;
+            Vector3 baseScale = Vector3.one;
+            Vector3 startScale = baseScale * Mathf.Max(0f, stampScale);
+            float safeDuration = Mathf.Max(0f, stampDuration);
+
+            SetBossClearStampVisible(true, 0f);
+            stampTransform.localScale = startScale;
+
+            if (safeDuration <= 0f)
+            {
+                stampTransform.localScale = baseScale;
+                SetBossClearStampVisible(true, 1f);
+                yield break;
+            }
+
+            float elapsed = 0f;
+
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float time = Mathf.Clamp01(elapsed / safeDuration);
+                float punch = Mathf.Sin(time * Mathf.PI);
+                stampTransform.localScale = Vector3.LerpUnclamped(baseScale, startScale, punch);
+                SetBossClearStampVisible(true, time);
+                yield return null;
+            }
+
+            stampTransform.localScale = baseScale;
+            SetBossClearStampVisible(true, 1f);
+        }
+
         #endregion
 
         #region Private Methods
@@ -257,6 +298,19 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
+        }
+
+        private void SetBossClearStampVisible(bool visible, float alpha)
+        {
+            if (bossClearStampImage != null)
+            {
+                bossClearStampImage.gameObject.SetActive(visible);
+            }
+
+            if (bossClearStampCanvasGroup != null)
+            {
+                bossClearStampCanvasGroup.alpha = Mathf.Clamp01(alpha);
+            }
         }
 
         private int GetDisplayStars()

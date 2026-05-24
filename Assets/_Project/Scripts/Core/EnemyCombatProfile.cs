@@ -16,6 +16,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Range(0f, 1f)] private float enemySelfHealChance;
         [SerializeField, Min(0)] private int enemySelfHealAmount;
         [SerializeField] private string enemySkillAnnouncementText = "Enemy Counter";
+        [SerializeField, TextArea] private string enemyDisruptDescription = "Disrupts special tiles and pressures your passive setup.";
         [SerializeField, Min(1)] private int enemySkillCooldownTurns = DefaultEnemySkillCooldownTurns;
         [SerializeField, Min(0f)] private float enemyActionDelay = 2f;
 
@@ -30,6 +31,9 @@ namespace CrystalMind.MatchMancer
         public float EnemySelfHealChance => enemySelfHealChance;
         public int EnemySelfHealAmount => enemySelfHealAmount;
         public string EnemySkillAnnouncementText => string.IsNullOrWhiteSpace(enemySkillAnnouncementText) ? name : enemySkillAnnouncementText;
+        public string EnemyDisruptDescription => string.IsNullOrWhiteSpace(enemyDisruptDescription)
+            ? "Disrupts special tiles and pressures your passive setup."
+            : enemyDisruptDescription;
         public int EnemySkillCooldownTurns => enemySkillCooldownTurns > 0 ? enemySkillCooldownTurns : DefaultEnemySkillCooldownTurns;
         public float EnemyActionDelay => enemyActionDelay;
 

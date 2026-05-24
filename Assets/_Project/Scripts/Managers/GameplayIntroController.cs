@@ -24,6 +24,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Transform playerBattlePoint;
         [SerializeField] private CinemachineTinyImpulse tinyImpulse;
         [SerializeField] private BoardManager boardManager;
+        [SerializeField] private GameObject enemyThreatIcon;
 
         // Cache
 
@@ -51,6 +52,7 @@ namespace CrystalMind.MatchMancer
 
             playerActor.ShowIdleVisual();
             enemyActor?.ShowIdleVisual();
+            SetEnemyThreatIconVisible(false);
             boardManager?.SetInputBlocked(true);
         }
 
@@ -113,6 +115,7 @@ namespace CrystalMind.MatchMancer
         {
             playerActor?.PlayBattleStartVisual();
             enemyActor?.PlayBattleStartVisual();
+            SetEnemyThreatIconVisible(true);
             StartBoardForBattleBeat();
 
             float safeDuration = Mathf.Max(0f, battleStartHoldDuration);
@@ -124,6 +127,7 @@ namespace CrystalMind.MatchMancer
 
             playerActor?.ShowIdleVisual();
             enemyActor?.ShowIdleVisual();
+            SetEnemyThreatIconVisible(false);
         }
 
         private IEnumerator PlayBattleStartHoldRoutine(float duration)
@@ -180,6 +184,14 @@ namespace CrystalMind.MatchMancer
 
             fallbackPlayerBattlePosition = playerActor.transform.position;
             hasFallbackPlayerBattlePosition = true;
+        }
+
+        private void SetEnemyThreatIconVisible(bool visible)
+        {
+            if (enemyThreatIcon != null)
+            {
+                enemyThreatIcon.SetActive(visible);
+            }
         }
 
         #endregion

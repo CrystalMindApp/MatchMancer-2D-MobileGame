@@ -14,6 +14,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float starRevealDelay = 0.22f;
         [SerializeField, Min(1f)] private float starPopScale = 1.25f;
         [SerializeField, Min(0f)] private float starPopDuration = 0.2f;
+        [SerializeField, Min(1f)] private float bossClearStampScale = 1.35f;
+        [SerializeField, Min(0f)] private float bossClearStampDuration = 0.18f;
         [SerializeField, Min(0f)] private float postStarRevealDelay = 0.35f;
         [SerializeField, Min(0f)] private float lockShakeDuration = 1f;
         [SerializeField, Min(0f)] private float lockShakeStrength = 8f;
@@ -157,6 +159,13 @@ namespace CrystalMind.MatchMancer
                     starRevealDelay,
                     starPopScale,
                     starPopDuration));
+
+                if (StageSession.PendingEarnedStars >= 3)
+                {
+                    yield return StartCoroutine(clearedStageButton.PlayBossClearStampTransition(
+                        bossClearStampScale,
+                        bossClearStampDuration));
+                }
 
                 yield return new WaitForSecondsRealtime(postStarRevealDelay);
             }

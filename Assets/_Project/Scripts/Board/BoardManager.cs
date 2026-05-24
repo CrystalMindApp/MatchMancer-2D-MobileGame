@@ -49,6 +49,9 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private GameObject verticalTileDestroyEffectPrefab;
         [SerializeField, Min(0f)] private float tileDestroyEffectLifetime = 1f;
         [SerializeField] private Transform tileDestroyEffectParent;
+        [SerializeField, Min(0f)] private float specialWaveStepDelay = 0.035f;
+        [SerializeField, Min(0f)] private float bombWaveStepDelay = 0.045f;
+        [SerializeField, Min(0f)] private float lineWaveStepDelay = 0.035f;
 
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
@@ -286,6 +289,20 @@ namespace CrystalMind.MatchMancer
             targetTile.SetSpecialType(SpecialTileType.None);
             Debug.Log($"BoardManager: Enemy disruption removed special tile at [{targetTile.Row}, {targetTile.Col}].");
             return true;
+        }
+
+        private struct TileClearVisual
+        {
+            public Tile Tile;
+            public TileDestroyContext DestroyContext;
+            public float Delay;
+
+            public TileClearVisual(Tile tile, TileDestroyContext destroyContext, float delay)
+            {
+                Tile = tile;
+                DestroyContext = destroyContext;
+                Delay = delay;
+            }
         }
 
         #endregion
@@ -985,7 +1002,7 @@ namespace CrystalMind.MatchMancer
             }
 
             activatedSpecialTiles.Add(tile);
-            TileDestroyContext sourceContext = new TileDestroyContext(tile.SpecialType, tile.Type);
+            TileDestroyContext sourceContext = new TileDestroyContext(tile.SpecialType, tile.Type, tile.Row, tile.Col);
             SetDestroyContext(tile, sourceContext, destroyContexts);
 
             switch (tile.SpecialType)
@@ -1138,14 +1155,44 @@ namespace CrystalMind.MatchMancer
                 yield break;
             }
 
+            List<TileClearVisual> clearVisuals = new List<TileClearVisual>();
             List<Coroutine> runningAnimations = new List<Coroutine>();
 
             foreach (Tile tile in tilesToClear)
             {
                 if (tile != null)
                 {
-                    SpawnTileDestroyEffect(tile, GetDestroyContext(tile, destroyContexts));
-                    runningAnimations.Add(StartCoroutine(tile.PlayDestroyVisual()));
+                    TileDestroyContext destroyContext = GetDestroyContext(tile, destroyContexts);
+                    clearVisuals.Add(new TileClearVisual(tile, destroyContext, GetSpecialClearWaveDelay(tile, destroyContext)));
+                }
+            }
+
+            clearVisuals.Sort((first, second) => first.Delay.CompareTo(second.Delay));
+
+            float elapsedDelay = 0f;
+            int index = 0;
+
+            while (index < clearVisuals.Count)
+            {
+                float nextDelay = clearVisuals[index].Delay;
+                float waitTime = Mathf.Max(0f, nextDelay - elapsedDelay);
+
+                if (waitTime > 0f)
+                {
+                    yield return new WaitForSeconds(waitTime);
+                    elapsedDelay = nextDelay;
+                }
+
+                while (index < clearVisuals.Count && Mathf.Approximately(clearVisuals[index].Delay, nextDelay))
+                {
+                    TileClearVisual clearVisual = clearVisuals[index];
+                    if (clearVisual.Tile != null)
+                    {
+                        SpawnTileDestroyEffect(clearVisual.Tile, clearVisual.DestroyContext);
+                        runningAnimations.Add(StartCoroutine(clearVisual.Tile.PlayDestroyVisual()));
+                    }
+
+                    index++;
                 }
             }
 
@@ -1207,7 +1254,41 @@ namespace CrystalMind.MatchMancer
                 return destroyContext;
             }
 
-            return new TileDestroyContext(tile != null ? tile.SpecialType : SpecialTileType.None, tile != null ? tile.Type : TileType.Red);
+            return new TileDestroyContext(
+                tile != null ? tile.SpecialType : SpecialTileType.None,
+                tile != null ? tile.Type : TileType.Red,
+                tile != null ? tile.Row : 0,
+                tile != null ? tile.Col : 0);
+        }
+
+        private float GetSpecialClearWaveDelay(Tile tile, TileDestroyContext destroyContext)
+        {
+            if (tile == null)
+            {
+                return 0f;
+            }
+
+            switch (destroyContext.SpecialType)
+            {
+                case SpecialTileType.Bomb:
+                    int rowDistance = Mathf.Abs(tile.Row - destroyContext.SourceRow);
+                    int colDistance = Mathf.Abs(tile.Col - destroyContext.SourceCol);
+                    return Mathf.Max(rowDistance, colDistance) * GetSpecialWaveDelay(bombWaveStepDelay);
+
+                case SpecialTileType.LineHorizontal:
+                    return Mathf.Abs(tile.Col - destroyContext.SourceCol) * GetSpecialWaveDelay(lineWaveStepDelay);
+
+                case SpecialTileType.LineVertical:
+                    return Mathf.Abs(tile.Row - destroyContext.SourceRow) * GetSpecialWaveDelay(lineWaveStepDelay);
+
+                default:
+                    return 0f;
+            }
+        }
+
+        private float GetSpecialWaveDelay(float specificDelay)
+        {
+            return specificDelay > 0f ? specificDelay : specialWaveStepDelay;
         }
 
         private void SpawnTileDestroyEffect(Tile tile, TileDestroyContext destroyContext)
@@ -1698,14 +1779,18 @@ namespace CrystalMind.MatchMancer
 
         private readonly struct TileDestroyContext
         {
-            public TileDestroyContext(SpecialTileType specialType, TileType tileType)
+            public TileDestroyContext(SpecialTileType specialType, TileType tileType, int sourceRow, int sourceCol)
             {
                 SpecialType = specialType;
                 TileType = tileType;
+                SourceRow = sourceRow;
+                SourceCol = sourceCol;
             }
 
             public SpecialTileType SpecialType { get; }
             public TileType TileType { get; }
+            public int SourceRow { get; }
+            public int SourceCol { get; }
         }
 
         #endregion

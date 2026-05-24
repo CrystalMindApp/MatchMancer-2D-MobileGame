@@ -26,6 +26,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float attackImpactDelay = 0.5f;
         [SerializeField, Min(0f)] private float postImpactHoldDelay = 0.5f;
         [SerializeField, Min(0f)] private float deathHoldDelay = 0.5f;
+        [SerializeField, Range(0.05f, 1f)] private float critSlowMotionScale = 0.35f;
+        [SerializeField, Min(0f)] private float critSlowMotionDuration = 0.08f;
 
         [Header("Scene Settings")]
         [SerializeField] private string homeSceneName = "Home";
@@ -65,6 +67,7 @@ namespace CrystalMind.MatchMancer
         // State
         private GameState currentState;
         private float pendingCritChance;
+        private int currentHeroHealAddition;
         private bool isTurnResolving;
         private bool isActiveSkillResolving;
         private string turnStatusText = "Player Turn";
@@ -74,6 +77,10 @@ namespace CrystalMind.MatchMancer
         private bool isEnemyRoundTransitioning;
         private bool isEnemyActionResolving;
         private bool enemyAttackUsedSkillThisAction;
+        private Coroutine critSlowMotionRoutine;
+        private float critSlowMotionOriginalTimeScale = 1f;
+        private float critSlowMotionOriginalFixedDeltaTime = 0.02f;
+        private bool isCritSlowMotionActive;
         private EnemyDefinition[] activeEnemyRoundSequence;
         private string currentStageName = "Stage";
 
@@ -107,6 +114,22 @@ namespace CrystalMind.MatchMancer
             !boardManager.IsResolving;
         public string TurnStatusText => turnStatusText;
         public string SpeedInfoText => $"P: {(playerActor != null ? playerActor.CurrentTurnSpeed : 0)}  E: {(enemyActor != null ? enemyActor.BaseSpeed : 0)}";
+        public string HeroSpeedText => (playerActor != null ? playerActor.CurrentTurnSpeed : 0).ToString();
+        public string EnemySpeedText => (enemyActor != null ? enemyActor.BaseSpeed : 0).ToString();
+        public string HeroAttackStatText => $"{(playerActor != null ? playerActor.BaseDamagePerTile : 0)}+0";
+        public string HeroHealStatText => $"{(playerActor != null ? playerActor.GreenHealPerTile : 0)}+{currentHeroHealAddition}";
+        public string HeroCritChanceText => FormatPercent(pendingCritChance);
+        public string HeroCritMultiplierText => $"{(playerActor != null ? playerActor.RedCritDamageMultiplier : 1f):0.##}x";
+        public string HeroActiveSkillText => playerActor != null && playerActor.ActiveSkill != null ? playerActor.ActiveSkill.SkillDescription : string.Empty;
+        public string HeroPassiveSkillText => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.PassiveDescription : string.Empty;
+        public string EnemyAttackStatText => $"{(enemyActor != null ? enemyActor.BaseAttackDamage : 0)}+0";
+        public string EnemyHealStatText => $"{(enemyActor != null ? enemyActor.EnemySelfHealAmount : 0)}+0";
+        public string EnemyCritChanceText => FormatPercent(enemyActor != null ? enemyActor.EnemyCritChance : 0f);
+        public string EnemyCritMultiplierText => $"{(enemyActor != null ? enemyActor.EnemyCritMultiplier : 1f):0.##}x";
+        public string EnemyDisruptChanceText => FormatPercent(enemyActor != null ? enemyActor.EnemySpecialDisruptChance : 0f);
+        public string EnemyDisruptDescriptionText => enemyActor != null ? enemyActor.EnemyDisruptDescription : string.Empty;
+        public string EnemyPassiveSkillText => string.Empty;
+        public bool IsMatchingPhase => IsPlaying && boardManager != null && boardManager.CanReceiveInput;
         public int PassiveStackThreshold => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.StackThreshold : 0;
         public int EnemySkillTurnsRemaining => Mathf.Max(0, enemySkillTurnsRemaining);
         public int EnemySkillCooldownTurns => enemyActor != null ? enemyActor.EnemySkillCooldownTurns : 0;
@@ -140,6 +163,11 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        private void OnDisable()
+        {
+            RestoreCriticalSlowMotion();
+        }
+
         #endregion
 
         #region Public Methods
@@ -163,6 +191,7 @@ namespace CrystalMind.MatchMancer
         public void RestartGame()
         {
             StopAllCoroutines();
+            RestoreCriticalSlowMotion();
             ApplyStartingEnemy();
 
             if (!HasRequiredActorReferences())
@@ -552,6 +581,7 @@ namespace CrystalMind.MatchMancer
             isTurnResolving = false;
             isActiveSkillResolving = false;
             pendingCritChance = 0f;
+            currentHeroHealAddition = 0;
             playerActor?.ResetTurnSpeedBonus();
             gameHUD?.ClearPlayerSkillText();
             gameHUD?.ClearEnemySkillText();
@@ -672,6 +702,7 @@ namespace CrystalMind.MatchMancer
         private void HealPlayer(int tileCount, int comboCount)
         {
             int healAmount = tileCount * playerActor.GreenHealPerTile * comboCount;
+            currentHeroHealAddition = Mathf.Max(0, healAmount - playerActor.GreenHealPerTile);
             playerActor.Heal(healAmount);
             ShowHealPopup(healAmount, playerActor.DamagePopupAnchor);
             LogPlayer($"Green effect: healed Player for {healAmount}. Player HP: {playerActor.CurrentHp}");
@@ -766,8 +797,9 @@ namespace CrystalMind.MatchMancer
                 enemyActor.PlayGetHitVisual();
                 enemyActor.PlayHitMotion(playerActor.transform.position);
                 ShowDamagePopup(damageResult.Damage, enemyActor.DamagePopupAnchor, damageResult.IsCritical);
-                SpawnBloodHitEffects(enemyActor.DamagePopupAnchor, damageResult.IsCritical);
+                SpawnBloodHitEffects(enemyActor.BloodHitAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
+                TryPlayCriticalSlowMotion(damageResult.IsCritical);
             }
 
             pendingCritChance = 0f;
@@ -841,8 +873,9 @@ namespace CrystalMind.MatchMancer
                 playerActor.PlayGetHitVisual();
                 playerActor.PlayHitMotion(enemyActor.transform.position);
                 ShowDamagePopup(damageResult.Damage, playerActor.DamagePopupAnchor, damageResult.IsCritical);
-                SpawnBloodHitEffects(playerActor.DamagePopupAnchor, damageResult.IsCritical);
+                SpawnBloodHitEffects(playerActor.BloodHitAnchor, damageResult.IsCritical);
                 tinyImpulse?.Shake();
+                TryPlayCriticalSlowMotion(damageResult.IsCritical);
             }
 
             LogEnemy($"Enemy attacks for {damageResult.Damage}. Player HP: {playerActor.CurrentHp}");
@@ -1020,6 +1053,52 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        private void TryPlayCriticalSlowMotion(bool isCritical)
+        {
+            if (!isCritical || critSlowMotionDuration <= 0f || Time.timeScale <= 0f)
+            {
+                return;
+            }
+
+            if (critSlowMotionRoutine != null)
+            {
+                return;
+            }
+
+            critSlowMotionRoutine = StartCoroutine(CriticalSlowMotionRoutine());
+        }
+
+        private IEnumerator CriticalSlowMotionRoutine()
+        {
+            critSlowMotionOriginalTimeScale = Time.timeScale;
+            critSlowMotionOriginalFixedDeltaTime = Time.fixedDeltaTime;
+            isCritSlowMotionActive = true;
+
+            float safeScale = Mathf.Clamp(critSlowMotionScale, 0.05f, 1f);
+
+            Time.timeScale = Mathf.Min(critSlowMotionOriginalTimeScale, safeScale);
+            Time.fixedDeltaTime = critSlowMotionOriginalFixedDeltaTime * (Time.timeScale / Mathf.Max(0.0001f, critSlowMotionOriginalTimeScale));
+
+            yield return new WaitForSecondsRealtime(critSlowMotionDuration);
+
+            RestoreCriticalSlowMotion();
+            critSlowMotionRoutine = null;
+        }
+
+        private void RestoreCriticalSlowMotion()
+        {
+            if (!isCritSlowMotionActive)
+            {
+                critSlowMotionRoutine = null;
+                return;
+            }
+
+            Time.timeScale = critSlowMotionOriginalTimeScale;
+            Time.fixedDeltaTime = critSlowMotionOriginalFixedDeltaTime;
+            isCritSlowMotionActive = false;
+            critSlowMotionRoutine = null;
+        }
+
         private bool ShouldPlayerActFirst()
         {
             if (isActiveSkillResolving)
@@ -1077,6 +1156,8 @@ namespace CrystalMind.MatchMancer
 
         private void LoadSceneWithTransition(string sceneName)
         {
+            RestoreCriticalSlowMotion();
+
             if (TransitionOverlayController.Instance != null)
             {
                 TransitionOverlayController.Instance.TransitionToScene(sceneName);
@@ -1424,6 +1505,11 @@ namespace CrystalMind.MatchMancer
             }
 
             Debug.Log(richMessage);
+        }
+
+        private string FormatPercent(float value)
+        {
+            return $"{Mathf.RoundToInt(Mathf.Clamp01(value) * 100f)}%";
         }
 
         private void SetState(GameState newState)
