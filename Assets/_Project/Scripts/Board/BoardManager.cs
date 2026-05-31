@@ -54,6 +54,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float lineWaveStepDelay = 0.035f;
 
         [Header("Board Effects")]
+        [SerializeField, Range(0f, 1f)] private float specialTileSpawnChance = 1f;
         [SerializeField] private BoardEffectData clearColorBoardEffect;
         [SerializeField] private BoardEffectData createRandomBombBoardEffect;
         [SerializeField] private BoardEffectData removeRandomSpecialBoardEffect;
@@ -813,11 +814,12 @@ namespace CrystalMind.MatchMancer
                 PlayComboSfx(comboLevel);
                 TryPlayMaxComboImpact(comboLevel);
 
+                BoardResolveStepContext resolveStepContext = CreateResolveStepContext(matchGroups, comboLevel);
                 ClearStepResult clearResult = new ClearStepResult();
 
                 if (countClearedTiles)
                 {
-                    yield return StartCoroutine(ProcessMatchGroupsRoutine(matchGroups, result => clearResult = result));
+                    yield return StartCoroutine(ProcessMatchGroupsRoutine(resolveStepContext, result => clearResult = result));
                 }
                 else
                 {
@@ -827,9 +829,10 @@ namespace CrystalMind.MatchMancer
                 if (countClearedTiles)
                 {
                     int comboCount = comboOffset + loopCount + 1;
+                    BoardResolveStepResult resolveStepResult = new BoardResolveStepResult(resolveStepContext, clearResult.ClearedCount, clearResult.ColorCounts);
                     lastResolveClearedTileCount += clearResult.ClearedCount;
-                    gameManager?.OnTilesCleared(clearResult.ClearedCount);
-                    gameManager?.OnTileColorsCleared(clearResult.ColorCounts, comboCount);
+                    gameManager?.OnTilesCleared(resolveStepResult.ClearedCount);
+                    gameManager?.OnTileColorsCleared(resolveStepResult.DestroyedTileTypeCounts, comboCount);
                 }
 
                 yield return new WaitForSeconds(resolveStepDelay);
@@ -1074,11 +1077,44 @@ namespace CrystalMind.MatchMancer
             return rowDistance + colDistance == 1;
         }
 
-        private IEnumerator ProcessMatchGroupsRoutine(List<MatchGroup> matchGroups, Action<ClearStepResult> onComplete)
+        private BoardResolveStepContext CreateResolveStepContext(List<MatchGroup> matchGroups, int comboIndex)
+        {
+            HashSet<TileType> matchedTileTypes = new HashSet<TileType>();
+
+            if (matchGroups != null)
+            {
+                foreach (MatchGroup group in matchGroups)
+                {
+                    if (group == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (Tile tile in group.Tiles)
+                    {
+                        if (tile != null)
+                        {
+                            matchedTileTypes.Add(tile.Type);
+                        }
+                    }
+                }
+            }
+
+            return new BoardResolveStepContext(comboIndex, matchGroups, matchedTileTypes);
+        }
+
+        private IEnumerator ProcessMatchGroupsRoutine(BoardResolveStepContext resolveStepContext, Action<ClearStepResult> onComplete)
         {
             HashSet<Tile> tilesToClear = new HashSet<Tile>();
             HashSet<Tile> activatedSpecialTiles = new HashSet<Tile>();
             Dictionary<Tile, TileDestroyContext> destroyContexts = new Dictionary<Tile, TileDestroyContext>();
+            IReadOnlyList<MatchGroup> matchGroups = resolveStepContext.MatchGroups;
+
+            if (matchGroups == null)
+            {
+                onComplete?.Invoke(new ClearStepResult());
+                yield break;
+            }
 
             foreach (MatchGroup group in matchGroups)
             {
@@ -1098,6 +1134,11 @@ namespace CrystalMind.MatchMancer
                 }
 
                 if (groupHasExistingSpecial || !ShouldCreateSpecialTile(group))
+                {
+                    continue;
+                }
+
+                if (!ShouldSpawnSpecialTile(resolveStepContext))
                 {
                     continue;
                 }
@@ -1149,6 +1190,24 @@ namespace CrystalMind.MatchMancer
             }
 
             return group.Count >= 4 || group.IsCornerOrCrossShape;
+        }
+
+        private bool ShouldSpawnSpecialTile(BoardResolveStepContext resolveStepContext)
+        {
+            _ = resolveStepContext;
+            float spawnChance = Mathf.Clamp01(specialTileSpawnChance);
+
+            if (spawnChance >= 1f)
+            {
+                return true;
+            }
+
+            if (spawnChance <= 0f)
+            {
+                return false;
+            }
+
+            return UnityEngine.Random.value <= spawnChance;
         }
 
         private SpecialTileType ClassifySpecialTileType(MatchGroup group)
