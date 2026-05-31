@@ -24,6 +24,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, TextArea] private string passiveDescription = "Charge with Purple tiles to create one Bomb.";
         [SerializeField] private PassiveSkillTiming timing = PassiveSkillTiming.ImmediateBoardEffect;
         [SerializeField] private PassiveSkillEffectType effectType = PassiveSkillEffectType.CreateRandomBomb;
+        [SerializeField] private BoardEffectData boardEffect;
         [SerializeField, Min(1)] private int stackThreshold = 3;
         [SerializeField] private bool resetStackOnTrigger = true;
 
@@ -35,6 +36,7 @@ namespace CrystalMind.MatchMancer
         public string PassiveDescription => passiveDescription;
         public PassiveSkillTiming Timing => timing;
         public PassiveSkillEffectType EffectType => effectType;
+        public BoardEffectData BoardEffect => boardEffect;
         public int StackThreshold => stackThreshold;
         public bool ResetStackOnTrigger => resetStackOnTrigger;
 

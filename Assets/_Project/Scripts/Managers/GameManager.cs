@@ -441,9 +441,11 @@ namespace CrystalMind.MatchMancer
             playerActor.PlaySkillVisual();
             HighlightPlayerTurn();
 
-            bool activated = activeSkill.SkillEffectType == ActiveSkillEffectType.ClearTileColor &&
-                boardManager != null &&
-                boardManager.TryActivateColorClearSkill(targetType);
+            bool activated = boardManager != null &&
+                (activeSkill.BoardEffect != null
+                    ? boardManager.TryActivateBoardEffectSkill(activeSkill.BoardEffect, targetType)
+                    : activeSkill.SkillEffectType == ActiveSkillEffectType.ClearTileColor &&
+                        boardManager.TryActivateColorClearSkill(targetType));
 
             if (!activated)
             {
@@ -771,7 +773,9 @@ namespace CrystalMind.MatchMancer
                         return false;
                     }
 
-                    bool createdBomb = boardManager.TryCreateRandomBomb();
+                    bool createdBomb = passiveSkill.BoardEffect != null
+                        ? boardManager.TryExecuteImmediateBoardEffect(passiveSkill.BoardEffect)
+                        : boardManager.TryCreateRandomBomb();
                     LogPassive(createdBomb
                         ? "Purple passive: created one Bomb special tile."
                         : "Purple passive: no valid normal tile found for Bomb creation.");
@@ -928,7 +932,12 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            bool disrupted = boardManager.TryRemoveRandomSpecialTile();
+            BoardEffectData disruptEffect = enemyActor != null && enemyActor.CombatProfile != null
+                ? enemyActor.CombatProfile.DisruptBoardEffect
+                : null;
+            bool disrupted = disruptEffect != null
+                ? boardManager.TryExecuteImmediateBoardEffect(disruptEffect)
+                : boardManager.TryRemoveRandomSpecialTile();
             if (disrupted)
             {
                 enemyActor.PlaySkillVisual();

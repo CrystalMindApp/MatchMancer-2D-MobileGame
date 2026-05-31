@@ -53,6 +53,14 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float bombWaveStepDelay = 0.045f;
         [SerializeField, Min(0f)] private float lineWaveStepDelay = 0.035f;
 
+        [Header("Board Effects")]
+        [SerializeField] private BoardEffectData clearColorBoardEffect;
+        [SerializeField] private BoardEffectData createRandomBombBoardEffect;
+        [SerializeField] private BoardEffectData removeRandomSpecialBoardEffect;
+        [SerializeField] private BoardEffectData horizontalLineBoardEffect;
+        [SerializeField] private BoardEffectData verticalLineBoardEffect;
+        [SerializeField] private BoardEffectData bombBoardEffect;
+
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
 
@@ -241,6 +249,25 @@ namespace CrystalMind.MatchMancer
             return true;
         }
 
+        public bool TryActivateBoardEffectSkill(BoardEffectData effectData, TileType targetType)
+        {
+            if (effectData == null || isResolving || isSwapping || (gameManager != null && !gameManager.IsPlaying))
+            {
+                return false;
+            }
+
+            BoardEffectContext effectContext = CreateDefaultBoardEffectContext().WithTargetTileType(targetType);
+            List<Tile> targets = effectData.GetTargets(effectContext);
+
+            if (targets == null || targets.Count == 0)
+            {
+                return false;
+            }
+
+            StartCoroutine(BoardEffectSkillRoutine(effectData, effectContext));
+            return true;
+        }
+
         public bool HasTileOfType(TileType targetType)
         {
             return GetActiveTiles()
@@ -259,6 +286,16 @@ namespace CrystalMind.MatchMancer
 
         public bool TryCreateRandomBomb()
         {
+            if (TryExecuteImmediateBoardEffect(createRandomBombBoardEffect, CreateDefaultBoardEffectContext(), out BoardEffectResult effectResult))
+            {
+                return effectResult.Succeeded;
+            }
+
+            return TryCreateRandomSpecialTile(SpecialTileType.Bomb, true);
+        }
+
+        public bool TryCreateRandomSpecialTile(SpecialTileType specialTileType, bool playSpawnSfx)
+        {
             List<Tile> normalTiles = GetActiveTiles()
                 .Where(tile => tile != null && !tile.IsSpecial)
                 .ToList();
@@ -269,12 +306,22 @@ namespace CrystalMind.MatchMancer
             }
 
             Tile targetTile = normalTiles[UnityEngine.Random.Range(0, normalTiles.Count)];
-            SetTileSpecialType(targetTile, SpecialTileType.Bomb, true);
-            Debug.Log($"BoardManager: Passive created Bomb at [{targetTile.Row}, {targetTile.Col}].");
+            SetTileSpecialType(targetTile, specialTileType, playSpawnSfx);
+            Debug.Log($"BoardManager: Created {specialTileType} special tile at [{targetTile.Row}, {targetTile.Col}].");
             return true;
         }
 
         public bool TryRemoveRandomSpecialTile()
+        {
+            if (TryExecuteImmediateBoardEffect(removeRandomSpecialBoardEffect, CreateDefaultBoardEffectContext(), out BoardEffectResult effectResult))
+            {
+                return effectResult.Succeeded;
+            }
+
+            return TryRemoveRandomSpecialTileInternal();
+        }
+
+        public bool TryRemoveRandomSpecialTileInternal()
         {
             List<Tile> specialTiles = GetActiveTiles()
                 .Where(tile => tile != null && tile.IsSpecial)
@@ -289,6 +336,106 @@ namespace CrystalMind.MatchMancer
             targetTile.SetSpecialType(SpecialTileType.None);
             Debug.Log($"BoardManager: Enemy disruption removed special tile at [{targetTile.Row}, {targetTile.Col}].");
             return true;
+        }
+
+        public bool TryExecuteImmediateBoardEffect(BoardEffectData effectData)
+        {
+            return TryExecuteImmediateBoardEffect(effectData, CreateDefaultBoardEffectContext(), out BoardEffectResult effectResult) &&
+                effectResult.Succeeded;
+        }
+
+        public IEnumerator ExecuteBoardEffectRoutine(BoardEffectData effectData, BoardEffectContext context, Action<BoardEffectResult> onComplete)
+        {
+            if (effectData == null)
+            {
+                onComplete?.Invoke(BoardEffectResult.Empty());
+                yield break;
+            }
+
+            BoardEffectContext safeContext = context.Board != null ? context : CreateDefaultBoardEffectContext();
+            yield return StartCoroutine(effectData.Execute(safeContext, onComplete));
+        }
+
+        public IEnumerator ClearTilesForBoardEffectRoutine(List<Tile> tilesToClear, BoardEffectContext context, Action<BoardEffectResult> onComplete)
+        {
+            Dictionary<Tile, TileDestroyContext> destroyContexts = CreateDestroyContextsForBoardEffect(tilesToClear, context);
+            ClearStepResult clearResult = new ClearStepResult();
+
+            yield return StartCoroutine(ClearTilesAndGetResultRoutine(tilesToClear, result => clearResult = result, destroyContexts));
+
+            onComplete?.Invoke(BoardEffectResult.Cleared(clearResult.ClearedCount, clearResult.ColorCounts));
+        }
+
+        public List<Tile> GetTilesOfType(TileType tileType)
+        {
+            return GetActiveTiles()
+                .Where(tile => tile != null && tile.Type == tileType)
+                .ToList();
+        }
+
+        public List<Tile> GetRowTiles(int row)
+        {
+            List<Tile> tiles = new List<Tile>();
+
+            if (!IsValidCoordinate(row, 0))
+            {
+                return tiles;
+            }
+
+            for (int col = 0; col < cols; col++)
+            {
+                Tile tile = GetTile(row, col);
+
+                if (tile != null)
+                {
+                    tiles.Add(tile);
+                }
+            }
+
+            return tiles;
+        }
+
+        public List<Tile> GetColumnTiles(int col)
+        {
+            List<Tile> tiles = new List<Tile>();
+
+            if (!IsValidCoordinate(0, col))
+            {
+                return tiles;
+            }
+
+            for (int row = 0; row < rows; row++)
+            {
+                Tile tile = GetTile(row, col);
+
+                if (tile != null)
+                {
+                    tiles.Add(tile);
+                }
+            }
+
+            return tiles;
+        }
+
+        public List<Tile> GetAreaTiles(int centerRow, int centerCol, int radius)
+        {
+            List<Tile> tiles = new List<Tile>();
+            int safeRadius = Mathf.Max(0, radius);
+
+            for (int row = centerRow - safeRadius; row <= centerRow + safeRadius; row++)
+            {
+                for (int col = centerCol - safeRadius; col <= centerCol + safeRadius; col++)
+                {
+                    Tile tile = GetTile(row, col);
+
+                    if (tile != null)
+                    {
+                        tiles.Add(tile);
+                    }
+                }
+            }
+
+            return tiles;
         }
 
         private struct TileClearVisual
@@ -312,6 +459,51 @@ namespace CrystalMind.MatchMancer
         #endregion
 
         #region Private Methods
+
+        private BoardEffectContext CreateDefaultBoardEffectContext()
+        {
+            return new BoardEffectContext(this, gameManager);
+        }
+
+        private BoardEffectContext CreateBoardEffectContext(Tile sourceTile)
+        {
+            return new BoardEffectContext(this, gameManager, sourceTile);
+        }
+
+        private bool TryExecuteImmediateBoardEffect(BoardEffectData effectData, BoardEffectContext context, out BoardEffectResult result)
+        {
+            if (effectData == null)
+            {
+                result = BoardEffectResult.Empty();
+                return false;
+            }
+
+            BoardEffectContext safeContext = context.Board != null ? context : CreateDefaultBoardEffectContext();
+            return effectData.TryExecuteImmediate(safeContext, out result);
+        }
+
+        private Dictionary<Tile, TileDestroyContext> CreateDestroyContextsForBoardEffect(List<Tile> tilesToClear, BoardEffectContext context)
+        {
+            Dictionary<Tile, TileDestroyContext> destroyContexts = new Dictionary<Tile, TileDestroyContext>();
+
+            if (tilesToClear == null || context.SourceSpecialType == SpecialTileType.None)
+            {
+                return destroyContexts;
+            }
+
+            TileDestroyContext sourceContext = new TileDestroyContext(
+                context.SourceSpecialType,
+                context.SourceTileType,
+                context.SourceRow,
+                context.SourceCol);
+
+            foreach (Tile tile in tilesToClear)
+            {
+                SetDestroyContext(tile, sourceContext, destroyContexts);
+            }
+
+            return destroyContexts;
+        }
 
         private void HandleInput()
         {
@@ -636,22 +828,65 @@ namespace CrystalMind.MatchMancer
             ClearSelection();
             ResetComboFeedback();
 
-            List<Tile> tilesToClear = GetActiveTiles()
-                .Where(tile => tile != null && tile.Type == targetType)
-                .ToList();
+            BoardEffectResult effectResult = BoardEffectResult.Empty();
+            BoardEffectContext effectContext = CreateDefaultBoardEffectContext().WithTargetTileType(targetType);
 
-            ClearStepResult clearResult = new ClearStepResult();
-            yield return StartCoroutine(ClearTilesAndGetResultRoutine(tilesToClear, result => clearResult = result));
-            lastResolveClearedTileCount = clearResult.ClearedCount;
+            if (clearColorBoardEffect != null)
+            {
+                yield return StartCoroutine(ExecuteBoardEffectRoutine(clearColorBoardEffect, effectContext, result => effectResult = result));
+            }
+            else
+            {
+                List<Tile> tilesToClear = GetActiveTiles()
+                    .Where(tile => tile != null && tile.Type == targetType)
+                    .ToList();
 
-            if (clearResult.ClearedCount > 0)
+                yield return StartCoroutine(ClearTilesForBoardEffectRoutine(tilesToClear, effectContext, result => effectResult = result));
+            }
+
+            lastResolveClearedTileCount = effectResult.ClearedCount;
+
+            if (effectResult.ClearedCount > 0)
             {
                 PlayComboSfx(1);
                 TryPlayMaxComboImpact(1);
             }
 
-            gameManager?.OnTilesCleared(clearResult.ClearedCount);
-            gameManager?.OnTileColorsCleared(clearResult.ColorCounts, 1);
+            gameManager?.OnTilesCleared(effectResult.ClearedCount);
+            gameManager?.OnTileColorsCleared(effectResult.ColorCounts, 1);
+
+            yield return new WaitForSeconds(resolveStepDelay);
+
+            yield return StartCoroutine(ApplyGravityRoutine());
+
+            yield return StartCoroutine(RefillBoardRoutine());
+            yield return new WaitForSeconds(resolveStepDelay);
+
+            yield return StartCoroutine(ResolveBoardRoutine(true, false, 1));
+
+            HideComboFeedback();
+            isResolving = false;
+            gameManager?.OnPlayerMoveResolved(lastResolveClearedTileCount);
+        }
+
+        private IEnumerator BoardEffectSkillRoutine(BoardEffectData effectData, BoardEffectContext effectContext)
+        {
+            isResolving = true;
+            ClearSelection();
+            ResetComboFeedback();
+
+            BoardEffectResult effectResult = BoardEffectResult.Empty();
+            yield return StartCoroutine(ExecuteBoardEffectRoutine(effectData, effectContext, result => effectResult = result));
+            lastResolveClearedTileCount = effectResult.ClearedCount;
+
+            if (effectResult.ClearedCount > 0)
+            {
+                PlayComboSfx(1);
+                TryPlayMaxComboImpact(1);
+            }
+
+            gameManager?.OnTilesCleared(effectResult.ClearedCount);
+            gameManager?.OnTileColorsCleared(effectResult.ColorCounts, 1);
 
             yield return new WaitForSeconds(resolveStepDelay);
 
@@ -1005,6 +1240,11 @@ namespace CrystalMind.MatchMancer
             TileDestroyContext sourceContext = new TileDestroyContext(tile.SpecialType, tile.Type, tile.Row, tile.Col);
             SetDestroyContext(tile, sourceContext, destroyContexts);
 
+            if (TryAddSpecialBoardEffectTargets(tile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext))
+            {
+                return;
+            }
+
             switch (tile.SpecialType)
             {
                 case SpecialTileType.LineHorizontal:
@@ -1018,6 +1258,59 @@ namespace CrystalMind.MatchMancer
                 case SpecialTileType.Bomb:
                     AddAreaToClear(tile.Row, tile.Col, 1, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     break;
+            }
+        }
+
+        private bool TryAddSpecialBoardEffectTargets(
+            Tile sourceTile,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            BoardEffectData effectData = GetSpecialBoardEffect(sourceTile != null ? sourceTile.SpecialType : SpecialTileType.None);
+
+            if (effectData == null)
+            {
+                return false;
+            }
+
+            BoardEffectContext context = CreateBoardEffectContext(sourceTile);
+            List<Tile> targets = effectData.GetTargets(context);
+
+            if (targets == null || targets.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (Tile target in targets)
+            {
+                if (target == null)
+                {
+                    continue;
+                }
+
+                AddTileToClear(target.Row, target.Col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+            }
+
+            return true;
+        }
+
+        private BoardEffectData GetSpecialBoardEffect(SpecialTileType specialType)
+        {
+            switch (specialType)
+            {
+                case SpecialTileType.LineHorizontal:
+                    return horizontalLineBoardEffect;
+
+                case SpecialTileType.LineVertical:
+                    return verticalLineBoardEffect;
+
+                case SpecialTileType.Bomb:
+                    return bombBoardEffect;
+
+                default:
+                    return null;
             }
         }
 

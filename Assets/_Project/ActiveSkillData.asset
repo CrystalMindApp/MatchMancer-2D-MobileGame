@@ -16,6 +16,7 @@ MonoBehaviour:
   skillDescription: Clear all tiles of the selected color.
   skillEffectType: 0
   targetTileColor: 0
+  boardEffect: {fileID: 11400000, guid: 97dcb08eb8b9c274188fef2943d26ada, type: 2}
   delayBeforeApply: 2
   consumesTurn: 1
   gaugeCost: 100

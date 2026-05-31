@@ -16,6 +16,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, TextArea] private string skillDescription = "Clear all tiles of the selected color.";
         [SerializeField] private ActiveSkillEffectType skillEffectType = ActiveSkillEffectType.ClearTileColor;
         [SerializeField] private TileType targetTileColor = TileType.Red;
+        [SerializeField] private BoardEffectData boardEffect;
         [SerializeField, Min(0f)] private float delayBeforeApply = 2f;
         [SerializeField] private bool consumesTurn = true;
         [SerializeField, Min(0)] private int gaugeCost = 100;
@@ -29,6 +30,7 @@ namespace CrystalMind.MatchMancer
         public string SkillDescription => skillDescription;
         public ActiveSkillEffectType SkillEffectType => skillEffectType;
         public TileType TargetTileColor => targetTileColor;
+        public BoardEffectData BoardEffect => boardEffect;
         public float DelayBeforeApply => delayBeforeApply;
         public bool ConsumesTurn => consumesTurn;
         public int GaugeCost => gaugeCost;
