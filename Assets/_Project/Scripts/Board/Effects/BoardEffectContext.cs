@@ -20,6 +20,8 @@ namespace CrystalMind.MatchMancer
         public SpecialTileType SourceSpecialType { get; }
         public int SourceRow { get; }
         public int SourceCol { get; }
+        public int AreaRadius { get; }
+        public bool HasAreaRadiusOverride { get; }
         public bool HasTargetTileType { get; }
         public TileType TargetTileType => HasTargetTileType ? targetTileType : SourceTileType;
 
@@ -40,6 +42,8 @@ namespace CrystalMind.MatchMancer
             SourceSpecialType = sourceTile != null ? sourceTile.SpecialType : SpecialTileType.None;
             SourceRow = sourceTile != null ? sourceTile.Row : 0;
             SourceCol = sourceTile != null ? sourceTile.Col : 0;
+            AreaRadius = 0;
+            HasAreaRadiusOverride = false;
             HasTargetTileType = targetTileType.HasValue;
             this.targetTileType = targetTileType ?? SourceTileType;
         }
@@ -52,6 +56,8 @@ namespace CrystalMind.MatchMancer
             SpecialTileType sourceSpecialType,
             int sourceRow,
             int sourceCol,
+            int areaRadius = 0,
+            bool hasAreaRadiusOverride = false,
             TileType? targetTileType = null)
         {
             Board = board;
@@ -61,6 +67,8 @@ namespace CrystalMind.MatchMancer
             SourceSpecialType = sourceSpecialType;
             SourceRow = sourceRow;
             SourceCol = sourceCol;
+            AreaRadius = areaRadius;
+            HasAreaRadiusOverride = hasAreaRadiusOverride;
             HasTargetTileType = targetTileType.HasValue;
             this.targetTileType = targetTileType ?? sourceTileType;
         }
@@ -75,7 +83,24 @@ namespace CrystalMind.MatchMancer
                 SourceSpecialType,
                 SourceRow,
                 SourceCol,
+                AreaRadius,
+                HasAreaRadiusOverride,
                 newTargetTileType);
+        }
+
+        public BoardEffectContext WithAreaRadius(int radius)
+        {
+            return new BoardEffectContext(
+                Board,
+                GameManager,
+                SourceTile,
+                SourceTileType,
+                SourceSpecialType,
+                SourceRow,
+                SourceCol,
+                radius,
+                true,
+                HasTargetTileType ? (TileType?)TargetTileType : null);
         }
 
         #endregion

@@ -31,8 +31,10 @@ namespace CrystalMind.MatchMancer
 
         public override List<Tile> GetTargets(BoardEffectContext context)
         {
+            int targetRadius = context.HasAreaRadiusOverride ? context.AreaRadius : radius;
+
             return HasValidBoard(context)
-                ? BoardEffectTargetingUtility.GetAreaTiles(context.Board, context.SourceRow, context.SourceCol, radius)
+                ? BoardEffectTargetingUtility.GetAreaTiles(context.Board, context.SourceRow, context.SourceCol, targetRadius)
                 : new List<Tile>();
         }
 

@@ -1347,6 +1347,11 @@ namespace CrystalMind.MatchMancer
             TileDestroyContext sourceContext = new TileDestroyContext(tile.SpecialType, tile.Type, tile.Row, tile.Col);
             SetDestroyContext(tile, sourceContext, destroyContexts);
 
+            if (tile.IsEnhancedSpecial && TryAddEnhancedSpecialBoardEffectTargets(tile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext))
+            {
+                return;
+            }
+
             if (TryAddSpecialBoardEffectTargets(tile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext))
             {
                 return;
@@ -1368,6 +1373,84 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        private bool TryAddEnhancedSpecialBoardEffectTargets(
+            Tile sourceTile,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            if (sourceTile == null)
+            {
+                return false;
+            }
+
+            switch (sourceTile.SpecialType)
+            {
+                case SpecialTileType.LineHorizontal:
+                    AddEnhancedLineTargets(sourceTile, true, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                    return true;
+
+                case SpecialTileType.LineVertical:
+                    AddEnhancedLineTargets(sourceTile, false, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                    return true;
+
+                case SpecialTileType.Bomb:
+                    if (TryAddBoardEffectTargets(bombBoardEffect, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext, 2))
+                    {
+                        return true;
+                    }
+
+                    AddAreaToClear(sourceTile.Row, sourceTile.Col, 2, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private void AddEnhancedLineTargets(
+            Tile sourceTile,
+            bool horizontalFirst,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            if (horizontalFirst)
+            {
+                AddLineTargets(horizontalLineBoardEffect, true, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                AddLineTargets(verticalLineBoardEffect, false, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                return;
+            }
+
+            AddLineTargets(verticalLineBoardEffect, false, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+            AddLineTargets(horizontalLineBoardEffect, true, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+        }
+
+        private void AddLineTargets(
+            BoardEffectData effectData,
+            bool horizontal,
+            Tile sourceTile,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            if (TryAddBoardEffectTargets(effectData, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext))
+            {
+                return;
+            }
+
+            if (horizontal)
+            {
+                AddRowToClear(sourceTile.Row, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                return;
+            }
+
+            AddColumnToClear(sourceTile.Col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+        }
+
         private bool TryAddSpecialBoardEffectTargets(
             Tile sourceTile,
             HashSet<Tile> tilesToClear,
@@ -1376,13 +1459,29 @@ namespace CrystalMind.MatchMancer
             TileDestroyContext sourceContext)
         {
             BoardEffectData effectData = GetSpecialBoardEffect(sourceTile != null ? sourceTile.SpecialType : SpecialTileType.None);
+            return TryAddBoardEffectTargets(effectData, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+        }
 
+        private bool TryAddBoardEffectTargets(
+            BoardEffectData effectData,
+            Tile sourceTile,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext,
+            int? areaRadiusOverride = null)
+        {
             if (effectData == null)
             {
                 return false;
             }
 
             BoardEffectContext context = CreateBoardEffectContext(sourceTile);
+            if (areaRadiusOverride.HasValue)
+            {
+                context = context.WithAreaRadius(areaRadiusOverride.Value);
+            }
+
             List<Tile> targets = effectData.GetTargets(context);
 
             if (targets == null || targets.Count == 0)
