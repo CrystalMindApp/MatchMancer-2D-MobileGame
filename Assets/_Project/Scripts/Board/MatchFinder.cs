@@ -30,25 +30,14 @@ namespace CrystalMind.MatchMancer
 
         #region Public Methods
 
+        public void AddTiles(IEnumerable<Tile> newTiles)
+        {
+            AddTilesInternal(newTiles);
+        }
+
         public void AddTiles(IEnumerable<Tile> newTiles, bool isHorizontalLine)
         {
-            if (newTiles == null)
-            {
-                return;
-            }
-
-            int lineLength = 0;
-
-            foreach (Tile tile in newTiles)
-            {
-                if (tile == null)
-                {
-                    continue;
-                }
-
-                tiles.Add(tile);
-                lineLength++;
-            }
+            int lineLength = AddTilesInternal(newTiles);
 
             if (isHorizontalLine)
             {
@@ -83,6 +72,33 @@ namespace CrystalMind.MatchMancer
         }
 
         #endregion
+
+        #region Private Methods
+
+        private int AddTilesInternal(IEnumerable<Tile> newTiles)
+        {
+            if (newTiles == null)
+            {
+                return 0;
+            }
+
+            int addedCount = 0;
+
+            foreach (Tile tile in newTiles)
+            {
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                tiles.Add(tile);
+                addedCount++;
+            }
+
+            return addedCount;
+        }
+
+        #endregion
     }
 
     public class MatchFinder
@@ -91,6 +107,7 @@ namespace CrystalMind.MatchMancer
 
         // Cache
         private readonly BoardManager board;
+        private readonly MatchClassifier matchClassifier = new MatchClassifier();
 
         #endregion
 
@@ -126,6 +143,24 @@ namespace CrystalMind.MatchMancer
             groups.AddRange(FindVerticalGroups());
 
             return MergeOverlappingGroups(groups);
+        }
+
+        public List<ClassifiedMatchGroup> FindClassifiedMatchGroups(bool includeSquare2x2Matches = true)
+        {
+            List<ClassifiedMatchGroup> classifiedGroups = new List<ClassifiedMatchGroup>();
+            List<MatchGroup> groups = FindMatchGroups();
+
+            if (includeSquare2x2Matches)
+            {
+                groups.AddRange(FindSquareGroups());
+            }
+
+            foreach (MatchGroup group in groups)
+            {
+                classifiedGroups.Add(new ClassifiedMatchGroup(group, matchClassifier.Classify(group)));
+            }
+
+            return classifiedGroups;
         }
 
         #endregion
@@ -194,6 +229,40 @@ namespace CrystalMind.MatchMancer
             }
 
             return groups;
+        }
+
+        private List<MatchGroup> FindSquareGroups()
+        {
+            List<MatchGroup> groups = new List<MatchGroup>();
+
+            for (int row = 0; row < board.Rows - 1; row++)
+            {
+                for (int col = 0; col < board.Cols - 1; col++)
+                {
+                    AddSquareGroupIfValid(groups, row, col);
+                }
+            }
+
+            return groups;
+        }
+
+        private void AddSquareGroupIfValid(List<MatchGroup> groups, int row, int col)
+        {
+            Tile topLeft = board.GetTile(row, col);
+            Tile topRight = board.GetTile(row, col + 1);
+            Tile bottomLeft = board.GetTile(row + 1, col);
+            Tile bottomRight = board.GetTile(row + 1, col + 1);
+
+            if (!IsSameType(topLeft, topRight) ||
+                !IsSameType(topLeft, bottomLeft) ||
+                !IsSameType(topLeft, bottomRight))
+            {
+                return;
+            }
+
+            MatchGroup group = new MatchGroup();
+            group.AddTiles(new[] { topLeft, topRight, bottomLeft, bottomRight });
+            groups.Add(group);
         }
 
         private void AddHorizontalGroup(List<MatchGroup> groups, int row, int endCol, int matchCount)

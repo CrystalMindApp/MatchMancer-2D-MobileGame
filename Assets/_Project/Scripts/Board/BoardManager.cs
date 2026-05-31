@@ -438,6 +438,29 @@ namespace CrystalMind.MatchMancer
             return tiles;
         }
 
+        public List<ClassifiedMatchGroup> GetCurrentMatchClassifications(bool includeSquare2x2Matches = true)
+        {
+            return matchFinder != null
+                ? matchFinder.FindClassifiedMatchGroups(includeSquare2x2Matches)
+                : new List<ClassifiedMatchGroup>();
+        }
+
+        public void LogCurrentMatchClassifications(bool includeSquare2x2Matches = true)
+        {
+            List<ClassifiedMatchGroup> classifiedGroups = GetCurrentMatchClassifications(includeSquare2x2Matches);
+
+            if (classifiedGroups.Count == 0)
+            {
+                Debug.Log("BoardManager: No classified matches found.");
+                return;
+            }
+
+            foreach (ClassifiedMatchGroup classifiedGroup in classifiedGroups)
+            {
+                Debug.Log($"BoardManager Match Classification: {classifiedGroup.GetDebugSummary()}");
+            }
+        }
+
         private struct TileClearVisual
         {
             public Tile Tile;
