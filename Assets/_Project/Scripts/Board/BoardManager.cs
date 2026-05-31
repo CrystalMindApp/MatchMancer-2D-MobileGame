@@ -55,6 +55,7 @@ namespace CrystalMind.MatchMancer
 
         [Header("Board Effects")]
         [SerializeField, Range(0f, 1f)] private float specialTileSpawnChance = 1f;
+        [SerializeField] private SpecialTileSpawnConfig specialTileSpawnConfig;
         [SerializeField] private BoardEffectData clearColorBoardEffect;
         [SerializeField] private BoardEffectData createRandomBombBoardEffect;
         [SerializeField] private BoardEffectData removeRandomSpecialBoardEffect;
@@ -1149,8 +1150,13 @@ namespace CrystalMind.MatchMancer
                     continue;
                 }
 
-                SpecialTileType specialType = ClassifySpecialTileType(group);
-                SetTileSpecialType(specialTile, specialType, true);
+                if (!TrySelectSpecialTileType(group, out SpecialTileType specialType))
+                {
+                    continue;
+                }
+
+                SpecialTileState specialState = GetSpecialTileState(resolveStepContext);
+                SetTileSpecialType(specialTile, specialType, true, specialState);
                 tilesToClear.Remove(specialTile);
             }
 
@@ -1208,6 +1214,25 @@ namespace CrystalMind.MatchMancer
             }
 
             return UnityEngine.Random.value <= spawnChance;
+        }
+
+        private bool TrySelectSpecialTileType(MatchGroup group, out SpecialTileType specialType)
+        {
+            specialType = ClassifySpecialTileType(group);
+
+            if (specialTileSpawnConfig == null)
+            {
+                return specialType != SpecialTileType.None;
+            }
+
+            return specialTileSpawnConfig.TrySelectSpecialTileType(specialType, out specialType);
+        }
+
+        private SpecialTileState GetSpecialTileState(BoardResolveStepContext resolveStepContext)
+        {
+            return resolveStepContext.HasMultipleMatchedTileTypes
+                ? SpecialTileState.Enhanced
+                : SpecialTileState.Normal;
         }
 
         private SpecialTileType ClassifySpecialTileType(MatchGroup group)
@@ -1779,7 +1804,7 @@ namespace CrystalMind.MatchMancer
             GetSceneAudioLibrary()?.PlaySpecialTileSpawn();
         }
 
-        private bool SetTileSpecialType(Tile tile, SpecialTileType specialType, bool playSpawnSfx)
+        private bool SetTileSpecialType(Tile tile, SpecialTileType specialType, bool playSpawnSfx, SpecialTileState specialState = SpecialTileState.Normal)
         {
             if (tile == null)
             {
@@ -1787,7 +1812,7 @@ namespace CrystalMind.MatchMancer
             }
 
             bool createsSpecial = !tile.IsSpecial && specialType != SpecialTileType.None;
-            tile.SetSpecialType(specialType);
+            tile.SetSpecialType(specialType, specialState);
 
             if (createsSpecial && playSpawnSfx)
             {

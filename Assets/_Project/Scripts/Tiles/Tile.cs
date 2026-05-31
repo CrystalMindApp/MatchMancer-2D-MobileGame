@@ -42,6 +42,7 @@ namespace CrystalMind.MatchMancer
 
         [Header("Debug")]
         [SerializeField] private SpecialTileType specialType;
+        [SerializeField] private SpecialTileState specialState;
 
         [Header("References")]
         [SerializeField] private TileVisualController visualController;
@@ -68,7 +69,9 @@ namespace CrystalMind.MatchMancer
         public int Col => col;
         public TileType Type => type;
         public SpecialTileType SpecialType => specialType;
+        public SpecialTileState SpecialState => specialState;
         public bool IsSpecial => specialType != SpecialTileType.None;
+        public bool IsEnhancedSpecial => IsSpecial && specialState == SpecialTileState.Enhanced;
 
         #endregion
 
@@ -113,6 +116,7 @@ namespace CrystalMind.MatchMancer
             col = newCol;
             type = newType;
             specialType = SpecialTileType.None;
+            specialState = SpecialTileState.Normal;
 
             visualController?.ResetVisualState();
             UpdateName();
@@ -135,8 +139,14 @@ namespace CrystalMind.MatchMancer
 
         public void SetSpecialType(SpecialTileType newSpecialType)
         {
+            SetSpecialType(newSpecialType, SpecialTileState.Normal);
+        }
+
+        public void SetSpecialType(SpecialTileType newSpecialType, SpecialTileState newSpecialState)
+        {
             bool wasSpecial = IsSpecial;
             specialType = newSpecialType;
+            specialState = IsSpecial ? newSpecialState : SpecialTileState.Normal;
             UpdateName();
             RefreshVisual();
             visualController?.SetSpecialState(IsSpecial, !wasSpecial && IsSpecial);
@@ -222,9 +232,11 @@ namespace CrystalMind.MatchMancer
 
         private void UpdateName()
         {
+            string specialStateSuffix = specialState == SpecialTileState.Enhanced ? "_Enhanced" : string.Empty;
+
             gameObject.name = specialType == SpecialTileType.None
                 ? $"Tile_{row}_{col}_{type}"
-                : $"Tile_{row}_{col}_{type}_{specialType}";
+                : $"Tile_{row}_{col}_{type}_{specialType}{specialStateSuffix}";
         }
 
         private Sprite GetMappedSprite(TileType tileType, SpecialTileType tileSpecialType)
