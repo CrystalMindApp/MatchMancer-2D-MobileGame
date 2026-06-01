@@ -795,6 +795,16 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        private void TryReportEnemyRageEntry()
+        {
+            if (enemyActor == null || !enemyActor.ConsumeRageEntryPending())
+            {
+                return;
+            }
+
+            LogEnemy($"Enemy entered Rage Mode: {enemyActor.RageAnnouncementText}");
+        }
+
         private bool TickPlayerPoisonAtTurnStart()
         {
             if (!IsPlaying || playerActor == null || !playerActor.HasPoison)
@@ -879,6 +889,7 @@ namespace CrystalMind.MatchMancer
 
             AttackDamageResult damageResult = CalculatePlayerDamage(clearedTileCount);
             enemyActor.TakeDamage(damageResult.Damage);
+            TryReportEnemyRageEntry();
 
             if (damageResult.Damage > 0)
             {
@@ -1091,7 +1102,7 @@ namespace CrystalMind.MatchMancer
                 return new AttackDamageResult();
             }
 
-            int damage = enemyActor.BaseAttackDamage;
+            int damage = enemyActor.CurrentAttackDamage;
             bool isCritical = Random.value < enemyActor.EnemyCritChance;
 
             if (isCritical)

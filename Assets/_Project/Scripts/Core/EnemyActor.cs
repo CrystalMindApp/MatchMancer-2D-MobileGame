@@ -20,6 +20,9 @@ namespace CrystalMind.MatchMancer
         private bool isCursed;
         private float curseMissChance;
         private int curseTurnsRemaining;
+        private EnemyState currentState = EnemyState.Normal;
+        private bool hasEnteredRage;
+        private bool rageEntryPending;
 
         #endregion
 
@@ -31,10 +34,17 @@ namespace CrystalMind.MatchMancer
         public int BaseSpeed => characterData != null ? characterData.BaseSpeed : 0;
         public int CurrentHp => Mathf.Max(0, currentHp);
         public int BaseAttackDamage => characterData != null ? characterData.BaseAttackDamage : 0;
+        public int CurrentAttackDamage => IsRaging && combatProfile != null
+            ? Mathf.Max(0, Mathf.RoundToInt(BaseAttackDamage * combatProfile.RageAttackDamageMultiplier))
+            : BaseAttackDamage;
         public float EnemySpecialDisruptChance => combatProfile != null ? combatProfile.EnemySpecialDisruptChance : 0f;
         public float EnemyApplyCurseChance => combatProfile != null ? combatProfile.EnemyApplyCurseChance : 0f;
-        public float TileCurseApplyChance => combatProfile != null ? combatProfile.TileCurseApplyChance : 0f;
-        public int TileCurseApplyCount => combatProfile != null ? combatProfile.TileCurseApplyCount : 0;
+        public float TileCurseApplyChance => combatProfile != null
+            ? Mathf.Clamp01(combatProfile.TileCurseApplyChance + (IsRaging ? combatProfile.RageTileCurseApplyChanceBonus : 0f))
+            : 0f;
+        public int TileCurseApplyCount => combatProfile != null
+            ? Mathf.Max(0, combatProfile.TileCurseApplyCount + (IsRaging ? combatProfile.RageTileCurseApplyCountBonus : 0))
+            : 0;
         public CurseEffectData TileCurseEffect => combatProfile != null ? combatProfile.TileCurseEffect : null;
         public float EnemyCritChance => combatProfile != null ? combatProfile.EnemyCritChance : 0f;
         public float EnemyCritMultiplier => combatProfile != null ? combatProfile.EnemyCritMultiplier : 1f;
@@ -44,6 +54,10 @@ namespace CrystalMind.MatchMancer
         public string EnemyDisruptDescription => combatProfile != null ? combatProfile.EnemyDisruptDescription : string.Empty;
         public int EnemySkillCooldownTurns => combatProfile != null ? combatProfile.EnemySkillCooldownTurns : 0;
         public float EnemyActionDelay => combatProfile != null ? combatProfile.EnemyActionDelay : 0f;
+        public EnemyState CurrentState => currentState;
+        public bool IsRaging => currentState == EnemyState.Rage;
+        public bool HasEnteredRage => hasEnteredRage;
+        public string RageAnnouncementText => combatProfile != null ? combatProfile.RageAnnouncementText : "RAGE";
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
         public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
 
@@ -74,6 +88,7 @@ namespace CrystalMind.MatchMancer
             isCursed = false;
             curseMissChance = 0f;
             curseTurnsRemaining = 0;
+            ResetRageState();
         }
 
         public void SetCombatProfile(EnemyCombatProfile profile)
@@ -111,7 +126,13 @@ namespace CrystalMind.MatchMancer
 
         public void TakeDamage(int amount)
         {
-            currentHp = Mathf.Max(0, currentHp - Mathf.Max(0, amount));
+            int damageAmount = Mathf.Max(0, amount);
+            currentHp = Mathf.Max(0, currentHp - damageAmount);
+
+            if (damageAmount > 0)
+            {
+                EvaluateRageState();
+            }
         }
 
         public void Heal(int amount)
@@ -217,9 +238,46 @@ namespace CrystalMind.MatchMancer
             turnScaleHighlighter?.ClearHighlight();
         }
 
+        public bool ConsumeRageEntryPending()
+        {
+            if (!rageEntryPending)
+            {
+                return false;
+            }
+
+            rageEntryPending = false;
+            return true;
+        }
+
         #endregion
 
         #region Private Methods
+
+        private void ResetRageState()
+        {
+            currentState = EnemyState.Normal;
+            hasEnteredRage = false;
+            rageEntryPending = false;
+        }
+
+        private void EvaluateRageState()
+        {
+            if (combatProfile == null || !combatProfile.EnableRageMode || hasEnteredRage || currentHp <= 0 || MaxHp <= 0)
+            {
+                return;
+            }
+
+            float hpRatio = Mathf.Clamp01((float)currentHp / MaxHp);
+
+            if (hpRatio > combatProfile.RageHpThreshold01)
+            {
+                return;
+            }
+
+            currentState = EnemyState.Rage;
+            hasEnteredRage = true;
+            rageEntryPending = true;
+        }
 
         private void ApplyDefinitionVisuals(EnemyDefinition definition)
         {
