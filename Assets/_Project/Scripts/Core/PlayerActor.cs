@@ -132,7 +132,7 @@ namespace CrystalMind.MatchMancer
 
         public void BeginPlayerAction()
         {
-            passiveTriggeredThisTurn = false;
+            ResetPassiveTurnState();
         }
 
         public void AddPassiveCharge(int amount)
@@ -144,9 +144,10 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            purplePassiveStack += Mathf.Max(0, amount);
+            int threshold = Mathf.Max(1, passiveSkill.StackThreshold);
+            purplePassiveStack = Mathf.Min(threshold, purplePassiveStack + Mathf.Max(0, amount));
 
-            if (purplePassiveStack >= passiveSkill.StackThreshold)
+            if (purplePassiveStack >= threshold)
             {
                 passiveReady = true;
             }
@@ -163,6 +164,11 @@ namespace CrystalMind.MatchMancer
 
         public void MarkPassiveExecuted()
         {
+            ConsumePassiveTriggerAttempt();
+        }
+
+        public void ConsumePassiveTriggerAttempt()
+        {
             PassiveSkillData passiveSkill = PassiveSkill;
 
             if (passiveSkill == null)
@@ -170,17 +176,16 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            if (passiveSkill.ResetStackOnTrigger)
-            {
-                purplePassiveStack = 0;
-            }
-            else
-            {
-                purplePassiveStack = Mathf.Max(0, purplePassiveStack - passiveSkill.StackThreshold);
-            }
-
+            purplePassiveStack = 0;
             passiveReady = false;
             passiveTriggeredThisTurn = true;
+        }
+
+        public void ResetPassiveTurnState()
+        {
+            purplePassiveStack = 0;
+            passiveReady = false;
+            passiveTriggeredThisTurn = false;
         }
 
         public void AddTurnSpeedBonus(int amount)

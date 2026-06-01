@@ -585,6 +585,7 @@ namespace CrystalMind.MatchMancer
             pendingCritChance = 0f;
             currentHeroHealAddition = 0;
             playerActor?.ResetTurnSpeedBonus();
+            playerActor?.ResetPassiveTurnState();
             gameHUD?.ClearPlayerSkillText();
             gameHUD?.ClearEnemySkillText();
             ClearTurnHighlight();
@@ -747,15 +748,16 @@ namespace CrystalMind.MatchMancer
 
             PassiveSkillData passiveSkill = playerActor.PassiveSkill;
             bool executed = ExecutePlayerPassiveEffect(passiveSkill);
+            playerActor.ConsumePassiveTriggerAttempt();
 
-            if (!executed)
+            if (executed)
             {
-                return;
+                playerActor.PlaySkillVisual();
             }
 
-            playerActor.MarkPassiveExecuted();
-            playerActor.PlaySkillVisual();
-            LogPassive($"Passive Skill: {passiveSkill.PassiveName} executed at {passiveSkill.Timing}.");
+            LogPassive(executed
+                ? $"Passive Skill: {passiveSkill.PassiveName} executed at {passiveSkill.Timing}."
+                : $"Passive Skill: {passiveSkill.PassiveName} attempted at {passiveSkill.Timing} but found no valid target.");
         }
 
         private bool ExecutePlayerPassiveEffect(PassiveSkillData passiveSkill)
