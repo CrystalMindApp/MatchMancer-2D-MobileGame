@@ -130,6 +130,11 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        public void SetCurseState(bool cursed)
+        {
+            _ = cursed;
+        }
+
         public IEnumerator PlayDestroyAnimation()
         {
             StopRunningVisualRoutines();

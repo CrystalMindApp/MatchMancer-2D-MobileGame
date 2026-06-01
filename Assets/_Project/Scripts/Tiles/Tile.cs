@@ -43,6 +43,8 @@ namespace CrystalMind.MatchMancer
         [Header("Debug")]
         [SerializeField] private SpecialTileType specialType;
         [SerializeField] private SpecialTileState specialState;
+        [Tooltip("Runtime/debug curse layer. Cursed tiles keep their TileType and SpecialTileType; effects are handled in later curse phases.")]
+        [SerializeField] private CurseEffectData curseEffect;
 
         [Header("References")]
         [SerializeField] private TileVisualController visualController;
@@ -72,6 +74,8 @@ namespace CrystalMind.MatchMancer
         public SpecialTileState SpecialState => specialState;
         public bool IsSpecial => specialType != SpecialTileType.None;
         public bool IsEnhancedSpecial => IsSpecial && specialState == SpecialTileState.Enhanced;
+        public bool IsCursed => curseEffect != null;
+        public CurseEffectData CurseEffect => curseEffect;
 
         #endregion
 
@@ -117,11 +121,13 @@ namespace CrystalMind.MatchMancer
             type = newType;
             specialType = SpecialTileType.None;
             specialState = SpecialTileState.Normal;
+            curseEffect = null;
 
             visualController?.ResetVisualState();
             UpdateName();
             RefreshVisual();
             visualController?.SetSpecialState(false, false);
+            visualController?.SetCurseState(false);
             SetSelected(false);
         }
 
@@ -150,6 +156,20 @@ namespace CrystalMind.MatchMancer
             UpdateName();
             RefreshVisual();
             visualController?.SetSpecialState(IsSpecial, !wasSpecial && IsSpecial);
+        }
+
+        public void SetCurse(CurseEffectData newCurseEffect)
+        {
+            curseEffect = newCurseEffect;
+            UpdateName();
+            visualController?.SetCurseState(IsCursed);
+        }
+
+        public void ClearCurse()
+        {
+            curseEffect = null;
+            UpdateName();
+            visualController?.SetCurseState(false);
         }
 
         public void SetSelected(bool isSelected)
@@ -233,10 +253,11 @@ namespace CrystalMind.MatchMancer
         private void UpdateName()
         {
             string specialStateSuffix = specialState == SpecialTileState.Enhanced ? "_Enhanced" : string.Empty;
+            string curseSuffix = IsCursed ? "_Cursed" : string.Empty;
 
             gameObject.name = specialType == SpecialTileType.None
-                ? $"Tile_{row}_{col}_{type}"
-                : $"Tile_{row}_{col}_{type}_{specialType}{specialStateSuffix}";
+                ? $"Tile_{row}_{col}_{type}{curseSuffix}"
+                : $"Tile_{row}_{col}_{type}_{specialType}{specialStateSuffix}{curseSuffix}";
         }
 
         private Sprite GetMappedSprite(TileType tileType, SpecialTileType tileSpecialType)
