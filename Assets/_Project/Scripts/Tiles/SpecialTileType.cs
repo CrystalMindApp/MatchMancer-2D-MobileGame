@@ -6,5 +6,6 @@ namespace CrystalMind.MatchMancer
         LineHorizontal,
         LineVertical,
         Bomb,
+        ColorMatch,
     }
 }

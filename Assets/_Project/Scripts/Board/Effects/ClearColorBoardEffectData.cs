@@ -39,6 +39,11 @@ namespace CrystalMind.MatchMancer
             }
 
             TileType targetType = ResolveTargetType(context);
+            if (context.HasSecondaryTargetTileType)
+            {
+                return BoardEffectTargetingUtility.GetTilesOfTypes(context.Board, targetType, context.SecondaryTargetTileType);
+            }
+
             return BoardEffectTargetingUtility.GetTilesOfType(context.Board, targetType);
         }
 

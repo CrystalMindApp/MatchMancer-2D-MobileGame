@@ -62,6 +62,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private BoardEffectData horizontalLineBoardEffect;
         [SerializeField] private BoardEffectData verticalLineBoardEffect;
         [SerializeField] private BoardEffectData bombBoardEffect;
+        [Tooltip("Use a ClearColorBoardEffectData asset. Color Match uses the source tile color as primary, and Enhanced Color Match may add a secondary color through context.")]
+        [SerializeField] private BoardEffectData colorMatchBoardEffect;
 
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
@@ -1370,6 +1372,10 @@ namespace CrystalMind.MatchMancer
                 case SpecialTileType.Bomb:
                     AddAreaToClear(tile.Row, tile.Col, 1, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     break;
+
+                case SpecialTileType.ColorMatch:
+                    AddColorMatchTargets(tile, tile.Type, null, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                    break;
             }
         }
 
@@ -1402,6 +1408,11 @@ namespace CrystalMind.MatchMancer
                     }
 
                     AddAreaToClear(sourceTile.Row, sourceTile.Col, 2, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+                    return true;
+
+                case SpecialTileType.ColorMatch:
+                    TileType secondaryTileType = GetRandomSecondaryTileType(sourceTile.Type);
+                    AddColorMatchTargets(sourceTile, sourceTile.Type, secondaryTileType, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
                     return true;
 
                 default:
@@ -1451,6 +1462,70 @@ namespace CrystalMind.MatchMancer
             AddColumnToClear(sourceTile.Col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
         }
 
+        private void AddColorMatchTargets(
+            Tile sourceTile,
+            TileType primaryTileType,
+            TileType? secondaryTileType,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            if (TryAddBoardEffectTargets(colorMatchBoardEffect, sourceTile, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext, null, primaryTileType, secondaryTileType))
+            {
+                return;
+            }
+
+            AddTilesOfTypeToClear(primaryTileType, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+
+            if (secondaryTileType.HasValue)
+            {
+                AddTilesOfTypeToClear(secondaryTileType.Value, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+            }
+        }
+
+        private void AddTilesOfTypeToClear(
+            TileType tileType,
+            HashSet<Tile> tilesToClear,
+            HashSet<Tile> activatedSpecialTiles,
+            Dictionary<Tile, TileDestroyContext> destroyContexts,
+            TileDestroyContext sourceContext)
+        {
+            List<Tile> targets = GetTilesOfType(tileType);
+
+            foreach (Tile target in targets)
+            {
+                if (target == null)
+                {
+                    continue;
+                }
+
+                AddTileToClear(target.Row, target.Col, tilesToClear, activatedSpecialTiles, destroyContexts, sourceContext);
+            }
+        }
+
+        private TileType GetRandomSecondaryTileType(TileType primaryTileType)
+        {
+            TileType[] tileTypes = (TileType[])Enum.GetValues(typeof(TileType));
+            List<TileType> candidates = new List<TileType>();
+
+            foreach (TileType tileType in tileTypes)
+            {
+                if (tileType != primaryTileType)
+                {
+                    candidates.Add(tileType);
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                return primaryTileType;
+            }
+
+            int index = UnityEngine.Random.Range(0, candidates.Count);
+            return candidates[index];
+        }
+
         private bool TryAddSpecialBoardEffectTargets(
             Tile sourceTile,
             HashSet<Tile> tilesToClear,
@@ -1469,7 +1544,9 @@ namespace CrystalMind.MatchMancer
             HashSet<Tile> activatedSpecialTiles,
             Dictionary<Tile, TileDestroyContext> destroyContexts,
             TileDestroyContext sourceContext,
-            int? areaRadiusOverride = null)
+            int? areaRadiusOverride = null,
+            TileType? targetTileType = null,
+            TileType? secondaryTargetTileType = null)
         {
             if (effectData == null)
             {
@@ -1477,6 +1554,15 @@ namespace CrystalMind.MatchMancer
             }
 
             BoardEffectContext context = CreateBoardEffectContext(sourceTile);
+            if (targetTileType.HasValue && secondaryTargetTileType.HasValue)
+            {
+                context = context.WithTargetTileTypes(targetTileType.Value, secondaryTargetTileType.Value);
+            }
+            else if (targetTileType.HasValue)
+            {
+                context = context.WithTargetTileType(targetTileType.Value);
+            }
+
             if (areaRadiusOverride.HasValue)
             {
                 context = context.WithAreaRadius(areaRadiusOverride.Value);
@@ -1514,6 +1600,9 @@ namespace CrystalMind.MatchMancer
 
                 case SpecialTileType.Bomb:
                     return bombBoardEffect;
+
+                case SpecialTileType.ColorMatch:
+                    return colorMatchBoardEffect;
 
                 default:
                     return null;

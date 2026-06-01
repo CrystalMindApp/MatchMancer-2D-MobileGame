@@ -8,6 +8,7 @@ namespace CrystalMind.MatchMancer
 
         // State
         private readonly TileType targetTileType;
+        private readonly TileType secondaryTargetTileType;
 
         #endregion
 
@@ -24,6 +25,8 @@ namespace CrystalMind.MatchMancer
         public bool HasAreaRadiusOverride { get; }
         public bool HasTargetTileType { get; }
         public TileType TargetTileType => HasTargetTileType ? targetTileType : SourceTileType;
+        public bool HasSecondaryTargetTileType { get; }
+        public TileType SecondaryTargetTileType => HasSecondaryTargetTileType ? secondaryTargetTileType : TargetTileType;
 
         #endregion
 
@@ -46,6 +49,8 @@ namespace CrystalMind.MatchMancer
             HasAreaRadiusOverride = false;
             HasTargetTileType = targetTileType.HasValue;
             this.targetTileType = targetTileType ?? SourceTileType;
+            HasSecondaryTargetTileType = false;
+            secondaryTargetTileType = this.targetTileType;
         }
 
         public BoardEffectContext(
@@ -58,7 +63,8 @@ namespace CrystalMind.MatchMancer
             int sourceCol,
             int areaRadius = 0,
             bool hasAreaRadiusOverride = false,
-            TileType? targetTileType = null)
+            TileType? targetTileType = null,
+            TileType? secondaryTargetTileType = null)
         {
             Board = board;
             GameManager = gameManager;
@@ -71,6 +77,8 @@ namespace CrystalMind.MatchMancer
             HasAreaRadiusOverride = hasAreaRadiusOverride;
             HasTargetTileType = targetTileType.HasValue;
             this.targetTileType = targetTileType ?? sourceTileType;
+            HasSecondaryTargetTileType = secondaryTargetTileType.HasValue;
+            this.secondaryTargetTileType = secondaryTargetTileType ?? this.targetTileType;
         }
 
         public BoardEffectContext WithTargetTileType(TileType newTargetTileType)
@@ -85,7 +93,24 @@ namespace CrystalMind.MatchMancer
                 SourceCol,
                 AreaRadius,
                 HasAreaRadiusOverride,
-                newTargetTileType);
+                newTargetTileType,
+                HasSecondaryTargetTileType ? (TileType?)SecondaryTargetTileType : null);
+        }
+
+        public BoardEffectContext WithTargetTileTypes(TileType primaryTargetTileType, TileType secondaryTargetTileType)
+        {
+            return new BoardEffectContext(
+                Board,
+                GameManager,
+                SourceTile,
+                SourceTileType,
+                SourceSpecialType,
+                SourceRow,
+                SourceCol,
+                AreaRadius,
+                HasAreaRadiusOverride,
+                primaryTargetTileType,
+                secondaryTargetTileType);
         }
 
         public BoardEffectContext WithAreaRadius(int radius)
@@ -100,7 +125,8 @@ namespace CrystalMind.MatchMancer
                 SourceCol,
                 radius,
                 true,
-                HasTargetTileType ? (TileType?)TargetTileType : null);
+                HasTargetTileType ? (TileType?)TargetTileType : null,
+                HasSecondaryTargetTileType ? (TileType?)SecondaryTargetTileType : null);
         }
 
         #endregion

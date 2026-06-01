@@ -252,6 +252,9 @@ namespace CrystalMind.MatchMancer
                 case SpecialTileType.Bomb:
                     return GetBombSprite(tileType) ?? GetNormalTileSprite(tileType);
 
+                case SpecialTileType.ColorMatch:
+                    return GetBombSprite(tileType) ?? GetNormalTileSprite(tileType);
+
                 default:
                     return GetNormalTileSprite(tileType);
             }
@@ -364,6 +367,7 @@ namespace CrystalMind.MatchMancer
                     return capsuleVerticalSprite != null ? capsuleVerticalSprite : defaultSprite;
 
                 case SpecialTileType.Bomb:
+                case SpecialTileType.ColorMatch:
                     return circleSprite != null ? circleSprite : defaultSprite;
 
                 default:
