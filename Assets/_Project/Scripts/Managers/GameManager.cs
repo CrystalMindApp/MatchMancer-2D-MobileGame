@@ -595,6 +595,11 @@ namespace CrystalMind.MatchMancer
                 yield return new WaitForSeconds(enemyAbilityDelay);
             }
 
+            if (TryEnemyTileCurse())
+            {
+                yield return new WaitForSeconds(enemyAbilityDelay);
+            }
+
             if (enemyWasReadyAtTurnStart)
             {
                 ResetEnemySkillCounter();
@@ -1026,6 +1031,34 @@ namespace CrystalMind.MatchMancer
                 ? "Enemy disruption: removed one special tile."
                 : "Enemy disruption: no special tile available.");
             return disrupted;
+        }
+
+        private bool TryEnemyTileCurse()
+        {
+            if (enemyActor == null || boardManager == null)
+            {
+                return false;
+            }
+
+            CurseEffectData curseEffect = enemyActor.TileCurseEffect;
+            int curseCount = enemyActor.TileCurseApplyCount;
+
+            if (curseEffect == null || curseCount <= 0 || Random.value > enemyActor.TileCurseApplyChance)
+            {
+                return false;
+            }
+
+            bool applied = boardManager.TryApplyRandomTileCurse(curseEffect, curseCount);
+
+            if (applied)
+            {
+                enemyActor.PlaySkillVisual();
+            }
+
+            LogCurse(applied
+                ? $"Enemy tile curse: applied {curseEffect.CurseName} to up to {curseCount} tile(s)."
+                : "Enemy tile curse: no valid uncursed tile available.");
+            return applied;
         }
 
         private void TickCurseDurations()

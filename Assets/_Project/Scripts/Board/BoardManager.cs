@@ -342,6 +342,42 @@ namespace CrystalMind.MatchMancer
             return true;
         }
 
+        public bool TryApplyRandomTileCurse(CurseEffectData curseEffect, int count)
+        {
+            if (curseEffect == null || count <= 0)
+            {
+                return false;
+            }
+
+            List<Tile> validTargets = GetActiveTiles()
+                .Where(tile => tile != null && !tile.IsCursed)
+                .ToList();
+
+            if (validTargets.Count == 0)
+            {
+                return false;
+            }
+
+            int applyCount = Mathf.Min(Mathf.Max(0, count), validTargets.Count);
+
+            for (int i = 0; i < applyCount; i++)
+            {
+                int randomIndex = UnityEngine.Random.Range(0, validTargets.Count);
+                Tile targetTile = validTargets[randomIndex];
+                validTargets.RemoveAt(randomIndex);
+
+                if (targetTile == null || targetTile.IsCursed)
+                {
+                    continue;
+                }
+
+                targetTile.SetCurse(curseEffect);
+                Debug.Log($"BoardManager: Applied tile curse '{curseEffect.CurseName}' to [{targetTile.Row}, {targetTile.Col}].");
+            }
+
+            return true;
+        }
+
         public bool TryExecuteImmediateBoardEffect(BoardEffectData effectData)
         {
             return TryExecuteImmediateBoardEffect(effectData, CreateDefaultBoardEffectContext(), out BoardEffectResult effectResult) &&

@@ -33,6 +33,9 @@ namespace CrystalMind.MatchMancer
         public int BaseAttackDamage => characterData != null ? characterData.BaseAttackDamage : 0;
         public float EnemySpecialDisruptChance => combatProfile != null ? combatProfile.EnemySpecialDisruptChance : 0f;
         public float EnemyApplyCurseChance => combatProfile != null ? combatProfile.EnemyApplyCurseChance : 0f;
+        public float TileCurseApplyChance => combatProfile != null ? combatProfile.TileCurseApplyChance : 0f;
+        public int TileCurseApplyCount => combatProfile != null ? combatProfile.TileCurseApplyCount : 0;
+        public CurseEffectData TileCurseEffect => combatProfile != null ? combatProfile.TileCurseEffect : null;
         public float EnemyCritChance => combatProfile != null ? combatProfile.EnemyCritChance : 0f;
         public float EnemyCritMultiplier => combatProfile != null ? combatProfile.EnemyCritMultiplier : 1f;
         public float EnemySelfHealChance => combatProfile != null ? combatProfile.EnemySelfHealChance : 0f;
