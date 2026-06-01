@@ -367,7 +367,7 @@ namespace CrystalMind.MatchMancer
 
             yield return StartCoroutine(ClearTilesAndGetResultRoutine(tilesToClear, result => clearResult = result, destroyContexts));
 
-            onComplete?.Invoke(BoardEffectResult.Cleared(clearResult.ClearedCount, clearResult.ColorCounts));
+            onComplete?.Invoke(BoardEffectResult.Cleared(clearResult.ClearedCount, clearResult.ColorCounts, clearResult.TriggeredCurses));
         }
 
         public List<Tile> GetTilesOfType(TileType tileType)
@@ -832,10 +832,15 @@ namespace CrystalMind.MatchMancer
                 if (countClearedTiles)
                 {
                     int comboCount = comboOffset + loopCount + 1;
-                    BoardResolveStepResult resolveStepResult = new BoardResolveStepResult(resolveStepContext, clearResult.ClearedCount, clearResult.ColorCounts);
+                    BoardResolveStepResult resolveStepResult = new BoardResolveStepResult(
+                        resolveStepContext,
+                        clearResult.ClearedCount,
+                        clearResult.ColorCounts,
+                        clearResult.TriggeredCurses);
                     lastResolveClearedTileCount += clearResult.ClearedCount;
                     gameManager?.OnTilesCleared(resolveStepResult.ClearedCount);
                     gameManager?.OnTileColorsCleared(resolveStepResult.DestroyedTileTypeCounts, comboCount);
+                    gameManager?.OnTileCursesTriggered(resolveStepResult.TriggeredCurses);
                 }
 
                 yield return new WaitForSeconds(resolveStepDelay);
@@ -883,6 +888,7 @@ namespace CrystalMind.MatchMancer
 
             gameManager?.OnTilesCleared(effectResult.ClearedCount);
             gameManager?.OnTileColorsCleared(effectResult.ColorCounts, 1);
+            gameManager?.OnTileCursesTriggered(effectResult.TriggeredCurses);
 
             yield return new WaitForSeconds(resolveStepDelay);
 
@@ -916,6 +922,7 @@ namespace CrystalMind.MatchMancer
 
             gameManager?.OnTilesCleared(effectResult.ClearedCount);
             gameManager?.OnTileColorsCleared(effectResult.ColorCounts, 1);
+            gameManager?.OnTileCursesTriggered(effectResult.TriggeredCurses);
 
             yield return new WaitForSeconds(resolveStepDelay);
 
@@ -1721,6 +1728,8 @@ namespace CrystalMind.MatchMancer
 
                 boardTiles[row, col] = null;
                 result.Add(tile.Type);
+                result.AddCurse(tile.CurseEffect);
+                tile.ClearCurse();
                 validTilesToRelease.Add(tile);
             }
 
@@ -2346,6 +2355,7 @@ namespace CrystalMind.MatchMancer
         {
             public int ClearedCount { get; private set; }
             public Dictionary<TileType, int> ColorCounts { get; private set; }
+            public List<CurseEffectData> TriggeredCurses { get; private set; }
 
             public void Add(TileType tileType)
             {
@@ -2362,6 +2372,21 @@ namespace CrystalMind.MatchMancer
                 }
 
                 ColorCounts[tileType]++;
+            }
+
+            public void AddCurse(CurseEffectData curseEffect)
+            {
+                if (curseEffect == null)
+                {
+                    return;
+                }
+
+                if (TriggeredCurses == null)
+                {
+                    TriggeredCurses = new List<CurseEffectData>();
+                }
+
+                TriggeredCurses.Add(curseEffect);
             }
         }
 

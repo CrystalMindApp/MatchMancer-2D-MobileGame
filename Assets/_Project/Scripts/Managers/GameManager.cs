@@ -256,6 +256,19 @@ namespace CrystalMind.MatchMancer
             }
         }
 
+        public void OnTileCursesTriggered(IReadOnlyList<CurseEffectData> triggeredCurses)
+        {
+            if (!IsPlaying || triggeredCurses == null || playerActor == null)
+            {
+                return;
+            }
+
+            foreach (CurseEffectData curseEffect in triggeredCurses)
+            {
+                ApplyTriggeredTileCurse(curseEffect);
+            }
+        }
+
         public void OnPlayerMoveResolved(int clearedTileCount)
         {
             if (!IsPlaying || !HasRequiredActorReferences())
@@ -475,6 +488,12 @@ namespace CrystalMind.MatchMancer
                 if (enemyActor != null && enemyActor.CurrentHp <= 0)
                 {
                     yield return StartCoroutine(HandleEnemyDefeatedRoutine());
+                    if (TickPlayerPoisonAtTurnStart())
+                    {
+                        FinishTurnResolve();
+                        yield break;
+                    }
+
                     FinishTurnResolve();
                     yield break;
                 }
@@ -501,6 +520,12 @@ namespace CrystalMind.MatchMancer
             if (enemyActor != null && enemyActor.CurrentHp <= 0)
             {
                 yield return StartCoroutine(HandleEnemyDefeatedRoutine());
+                if (TickPlayerPoisonAtTurnStart())
+                {
+                    FinishTurnResolve();
+                    yield break;
+                }
+
                 FinishTurnResolve();
                 yield break;
             }
@@ -513,6 +538,12 @@ namespace CrystalMind.MatchMancer
             }
 
             TickCurseDurations();
+
+            if (TickPlayerPoisonAtTurnStart())
+            {
+                FinishTurnResolve();
+                yield break;
+            }
 
             FinishTurnResolve();
         }
@@ -737,6 +768,52 @@ namespace CrystalMind.MatchMancer
             int chargeAmount = tileCount * comboCount;
             playerActor.AddPassiveCharge(chargeAmount);
             LogPassive($"Purple effect: passive stack {playerActor.PurplePassiveStack}/{passiveSkill.StackThreshold}. Ready: {playerActor.PassiveReady}");
+        }
+
+        private void ApplyTriggeredTileCurse(CurseEffectData curseEffect)
+        {
+            if (curseEffect == null || playerActor == null)
+            {
+                return;
+            }
+
+            switch (curseEffect.CurseType)
+            {
+                case CurseType.Poison:
+                    playerActor.ApplyPoison(curseEffect.PoisonDamagePerTurn, curseEffect.DurationTurns);
+                    LogCurse($"Tile curse triggered: {curseEffect.CurseName} applied Poison for {curseEffect.DurationTurns} turn(s).");
+                    break;
+
+                case CurseType.Blind:
+                    LogCurse($"Tile curse triggered: {curseEffect.CurseName} is Blind, but Blind is not implemented in D2.");
+                    break;
+            }
+        }
+
+        private bool TickPlayerPoisonAtTurnStart()
+        {
+            if (!IsPlaying || playerActor == null || !playerActor.HasPoison)
+            {
+                return false;
+            }
+
+            int poisonDamage = playerActor.TickPoisonAtPlayerTurnStart();
+
+            if (poisonDamage <= 0)
+            {
+                return false;
+            }
+
+            ShowDamagePopup(poisonDamage, playerActor.DamagePopupAnchor, false);
+            LogCurse($"Poison deals {poisonDamage} damage. Player HP: {playerActor.CurrentHp}");
+
+            if (playerActor.CurrentHp > 0)
+            {
+                return false;
+            }
+
+            HandlePlayerDefeated();
+            return true;
         }
 
         private void ResolvePlayerPassive(PassiveSkillTiming timing)

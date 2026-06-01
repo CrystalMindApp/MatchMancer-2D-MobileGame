@@ -45,6 +45,8 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private SpecialTileState specialState;
         [Tooltip("Runtime/debug curse layer. Cursed tiles keep their TileType and SpecialTileType; effects are handled in later curse phases.")]
         [SerializeField] private CurseEffectData curseEffect;
+        [Tooltip("Play Mode manual test only. Use the Tile component context menu: Debug/Apply Debug Curse.")]
+        [SerializeField] private CurseEffectData debugCurseEffect;
 
         [Header("References")]
         [SerializeField] private TileVisualController visualController;
@@ -170,6 +172,36 @@ namespace CrystalMind.MatchMancer
             curseEffect = null;
             UpdateName();
             visualController?.SetCurseState(false);
+        }
+
+        [ContextMenu("Debug/Apply Debug Curse")]
+        public void DebugApplyCurse()
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.LogWarning($"{name}: Debug curse can only be applied in Play Mode.");
+                return;
+            }
+
+            if (debugCurseEffect == null)
+            {
+                Debug.LogWarning($"{name}: Debug curse effect is missing.");
+                return;
+            }
+
+            SetCurse(debugCurseEffect);
+        }
+
+        [ContextMenu("Debug/Clear Curse")]
+        public void DebugClearCurse()
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.LogWarning($"{name}: Debug curse can only be cleared in Play Mode.");
+                return;
+            }
+
+            ClearCurse();
         }
 
         public void SetSelected(bool isSelected)

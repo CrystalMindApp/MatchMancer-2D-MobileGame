@@ -23,6 +23,8 @@ namespace CrystalMind.MatchMancer
         private int currentSkillGauge;
         private int purplePassiveStack;
         private int currentTurnSpeedBonus;
+        private int poisonDamagePerTurn;
+        private int poisonTurnsRemaining;
         private bool passiveReady;
         private bool passiveTriggeredThisTurn;
 
@@ -53,6 +55,9 @@ namespace CrystalMind.MatchMancer
         public int CurrentTurnSpeedBonus => currentTurnSpeedBonus;
         public bool PassiveReady => passiveReady;
         public bool PassiveTriggeredThisTurn => passiveTriggeredThisTurn;
+        public bool HasPoison => poisonTurnsRemaining > 0 && poisonDamagePerTurn > 0;
+        public int PoisonTurnsRemaining => Mathf.Max(0, poisonTurnsRemaining);
+        public int PoisonDamagePerTurn => Mathf.Max(0, poisonDamagePerTurn);
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
         public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
 
@@ -86,6 +91,8 @@ namespace CrystalMind.MatchMancer
             currentSkillGauge = 0;
             purplePassiveStack = 0;
             currentTurnSpeedBonus = 0;
+            poisonDamagePerTurn = 0;
+            poisonTurnsRemaining = 0;
             passiveReady = false;
             passiveTriggeredThisTurn = false;
         }
@@ -98,6 +105,31 @@ namespace CrystalMind.MatchMancer
         public void Heal(int amount)
         {
             currentHp = Mathf.Min(MaxHp, currentHp + Mathf.Max(0, amount));
+        }
+
+        public void ApplyPoison(int damagePerTurn, int durationTurns)
+        {
+            poisonDamagePerTurn = Mathf.Max(poisonDamagePerTurn, Mathf.Max(0, damagePerTurn));
+            poisonTurnsRemaining = Mathf.Max(poisonTurnsRemaining, Mathf.Max(1, durationTurns));
+        }
+
+        public int TickPoisonAtPlayerTurnStart()
+        {
+            if (!HasPoison)
+            {
+                return 0;
+            }
+
+            int damage = poisonDamagePerTurn;
+            TakeDamage(damage);
+            poisonTurnsRemaining = Mathf.Max(0, poisonTurnsRemaining - 1);
+
+            if (poisonTurnsRemaining <= 0)
+            {
+                poisonDamagePerTurn = 0;
+            }
+
+            return damage;
         }
 
         public void AddSkillGauge(int amount)

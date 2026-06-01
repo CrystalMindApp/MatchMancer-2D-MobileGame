@@ -28,6 +28,10 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Range(0f, 2f)] private float specialGlowIntensity = 0.25f;
         [SerializeField, Min(0f)] private float specialGlowPulseSpeed = 1.8f;
 
+        [Header("Curse Debug Visual")]
+        [Tooltip("Temporary debug tint multiplied with the tile base color while the tile has a curse.")]
+        [SerializeField] private Color curseDebugTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+
         [Header("References")]
         [SerializeField] private SpriteRenderer targetRenderer;
 
@@ -42,6 +46,7 @@ namespace CrystalMind.MatchMancer
         // State
         private bool isSelected;
         private bool isSpecial;
+        private bool isCursed;
         private bool supportsMaterialColor;
 
         #endregion
@@ -67,11 +72,12 @@ namespace CrystalMind.MatchMancer
         {
             StopRunningVisualRoutines();
             isSelected = false;
+            isCursed = false;
 
             if (targetRenderer != null)
             {
-                targetRenderer.color = baseColor;
                 targetRenderer.SetPropertyBlock(null);
+                targetRenderer.color = baseColor;
             }
 
             transform.localScale = defaultScale;
@@ -132,7 +138,13 @@ namespace CrystalMind.MatchMancer
 
         public void SetCurseState(bool cursed)
         {
-            _ = cursed;
+            if (isCursed == cursed)
+            {
+                return;
+            }
+
+            isCursed = cursed;
+            ApplyCurrentRendererColor();
         }
 
         public IEnumerator PlayDestroyAnimation()
@@ -207,6 +219,7 @@ namespace CrystalMind.MatchMancer
             if (targetRenderer != null)
             {
                 baseColor = targetRenderer.color;
+                ApplyCurrentRendererColor();
             }
         }
 
@@ -329,7 +342,7 @@ namespace CrystalMind.MatchMancer
 
             float pulse = (Mathf.Sin(Time.time * specialGlowPulseSpeed) + 1f) * 0.5f;
             float intensity = specialGlowIntensity * pulse;
-            Color glowColor = Color.Lerp(baseColor, specialGlowColor, intensity);
+            Color glowColor = Color.Lerp(GetDisplayBaseColor(), specialGlowColor, intensity);
 
             if (supportsMaterialColor)
             {
@@ -350,7 +363,30 @@ namespace CrystalMind.MatchMancer
             }
 
             targetRenderer.SetPropertyBlock(null);
-            targetRenderer.color = baseColor;
+            ApplyCurrentRendererColor();
+        }
+
+        private void ApplyCurrentRendererColor()
+        {
+            if (targetRenderer == null)
+            {
+                return;
+            }
+
+            targetRenderer.SetPropertyBlock(null);
+            targetRenderer.color = GetDisplayBaseColor();
+        }
+
+        private Color GetDisplayBaseColor()
+        {
+            if (!isCursed)
+            {
+                return baseColor;
+            }
+
+            Color tintedColor = baseColor * curseDebugTint;
+            tintedColor.a = baseColor.a;
+            return tintedColor;
         }
 
         private void ApplyDestroyVisual(Vector3 scale, Color fadeColor)
