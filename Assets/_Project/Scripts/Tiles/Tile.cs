@@ -128,7 +128,7 @@ namespace CrystalMind.MatchMancer
             visualController?.ResetVisualState();
             UpdateName();
             RefreshVisual();
-            visualController?.SetSpecialState(false, false);
+            visualController?.SetSpecialState(false, false, false);
             visualController?.SetCurseState(false);
             SetSelected(false);
         }
@@ -157,7 +157,7 @@ namespace CrystalMind.MatchMancer
             specialState = IsSpecial ? newSpecialState : SpecialTileState.Normal;
             UpdateName();
             RefreshVisual();
-            visualController?.SetSpecialState(IsSpecial, !wasSpecial && IsSpecial);
+            visualController?.SetSpecialState(IsSpecial, IsEnhancedSpecial, !wasSpecial && IsSpecial);
         }
 
         public void SetCurse(CurseEffectData newCurseEffect)

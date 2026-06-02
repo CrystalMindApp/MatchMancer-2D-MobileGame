@@ -32,6 +32,10 @@ namespace CrystalMind.MatchMancer
         [Tooltip("Temporary debug tint multiplied with the tile base color while the tile has a curse.")]
         [SerializeField] private Color curseDebugTint = new Color(0.35f, 0.35f, 0.35f, 1f);
 
+        [Header("Enhanced Debug Visual")]
+        [Tooltip("Temporary debug tint multiplied with the tile base color while a special tile is Enhanced. Curse tint has priority.")]
+        [SerializeField] private Color enhancedSpecialTintColor = new Color(1f, 0.15f, 0.65f, 1f);
+
         [Header("References")]
         [SerializeField] private SpriteRenderer targetRenderer;
 
@@ -46,6 +50,7 @@ namespace CrystalMind.MatchMancer
         // State
         private bool isSelected;
         private bool isSpecial;
+        private bool isEnhancedSpecial;
         private bool isCursed;
         private bool supportsMaterialColor;
 
@@ -72,6 +77,8 @@ namespace CrystalMind.MatchMancer
         {
             StopRunningVisualRoutines();
             isSelected = false;
+            isSpecial = false;
+            isEnhancedSpecial = false;
             isCursed = false;
 
             if (targetRenderer != null)
@@ -120,10 +127,11 @@ namespace CrystalMind.MatchMancer
             transform.localScale = defaultScale;
         }
 
-        public void SetSpecialState(bool special, bool playSpawnAnimation)
+        public void SetSpecialState(bool special, bool enhanced, bool playSpawnAnimation)
         {
             bool becameSpecial = special && !isSpecial;
             isSpecial = special;
+            isEnhancedSpecial = special && enhanced;
 
             if (becameSpecial && playSpawnAnimation)
             {
@@ -133,7 +141,15 @@ namespace CrystalMind.MatchMancer
             if (!isSpecial)
             {
                 ClearSpecialGlow();
+                return;
             }
+
+            ApplyCurrentRendererColor();
+        }
+
+        public void SetSpecialState(bool special, bool playSpawnAnimation)
+        {
+            SetSpecialState(special, false, playSpawnAnimation);
         }
 
         public void SetCurseState(bool cursed)
@@ -379,12 +395,18 @@ namespace CrystalMind.MatchMancer
 
         private Color GetDisplayBaseColor()
         {
-            if (!isCursed)
+            Color tintColor = Color.white;
+
+            if (isCursed)
             {
-                return baseColor;
+                tintColor = curseDebugTint;
+            }
+            else if (isSpecial && isEnhancedSpecial)
+            {
+                tintColor = enhancedSpecialTintColor;
             }
 
-            Color tintedColor = baseColor * curseDebugTint;
+            Color tintedColor = baseColor * tintColor;
             tintedColor.a = baseColor.a;
             return tintedColor;
         }

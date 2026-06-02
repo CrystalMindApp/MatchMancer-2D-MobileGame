@@ -1263,14 +1263,16 @@ namespace CrystalMind.MatchMancer
 
         private bool TrySelectSpecialTileType(MatchGroup group, out SpecialTileType specialType)
         {
-            specialType = ClassifySpecialTileType(group);
+            specialType = SpecialTileType.None;
 
-            if (specialTileSpawnConfig == null)
+            if (specialTileSpawnConfig != null &&
+                specialTileSpawnConfig.TrySelectSpecialTileType(out specialType))
             {
-                return specialType != SpecialTileType.None;
+                return true;
             }
 
-            return specialTileSpawnConfig.TrySelectSpecialTileType(specialType, out specialType);
+            specialType = ClassifySpecialTileType(group);
+            return specialType != SpecialTileType.None;
         }
 
         private SpecialTileState GetSpecialTileState(BoardResolveStepContext resolveStepContext)

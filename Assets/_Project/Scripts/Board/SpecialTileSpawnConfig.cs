@@ -20,6 +20,25 @@ namespace CrystalMind.MatchMancer
 
         #region Public Methods
 
+        public bool TrySelectSpecialTileType(out SpecialTileType selectedType)
+        {
+            selectedType = SpecialTileType.None;
+
+            if (!useWeightedPool)
+            {
+                return false;
+            }
+
+            int totalWeight = GetTotalWeight();
+
+            if (totalWeight <= 0)
+            {
+                return false;
+            }
+
+            return TrySelectFromWeightedPool(totalWeight, out selectedType);
+        }
+
         public bool TrySelectSpecialTileType(SpecialTileType legacyType, out SpecialTileType selectedType)
         {
             selectedType = SpecialTileType.None;
@@ -36,25 +55,9 @@ namespace CrystalMind.MatchMancer
                 return TryUseLegacyMapping(legacyType, out selectedType);
             }
 
-            int roll = UnityEngine.Random.Range(0, totalWeight);
-            int currentWeight = 0;
-
-            foreach (SpecialTileSpawnEntry entry in entries)
+            if (TrySelectFromWeightedPool(totalWeight, out selectedType))
             {
-                if (!entry.IsValid)
-                {
-                    continue;
-                }
-
-                currentWeight += entry.Weight;
-
-                if (roll >= currentWeight)
-                {
-                    continue;
-                }
-
-                selectedType = entry.SpecialType;
-                return selectedType != SpecialTileType.None;
+                return true;
             }
 
             return TryUseLegacyMapping(legacyType, out selectedType);
@@ -62,7 +65,7 @@ namespace CrystalMind.MatchMancer
 
         public bool HasValidPool()
         {
-            return GetTotalWeight() > 0;
+            return useWeightedPool && GetTotalWeight() > 0;
         }
 
         public bool ValidatePool(out string validationMessage)
@@ -112,6 +115,39 @@ namespace CrystalMind.MatchMancer
         #endregion
 
         #region Private Methods
+
+        private bool TrySelectFromWeightedPool(int totalWeight, out SpecialTileType selectedType)
+        {
+            selectedType = SpecialTileType.None;
+
+            if (totalWeight <= 0)
+            {
+                return false;
+            }
+
+            int roll = UnityEngine.Random.Range(0, totalWeight);
+            int currentWeight = 0;
+
+            foreach (SpecialTileSpawnEntry entry in entries)
+            {
+                if (!entry.IsValid)
+                {
+                    continue;
+                }
+
+                currentWeight += entry.Weight;
+
+                if (roll >= currentWeight)
+                {
+                    continue;
+                }
+
+                selectedType = entry.SpecialType;
+                return selectedType != SpecialTileType.None;
+            }
+
+            return false;
+        }
 
         private bool TryUseLegacyMapping(SpecialTileType legacyType, out SpecialTileType selectedType)
         {
