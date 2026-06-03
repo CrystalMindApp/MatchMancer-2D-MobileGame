@@ -26,6 +26,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float attackImpactDelay = 0.5f;
         [SerializeField, Min(0f)] private float postImpactHoldDelay = 0.5f;
         [SerializeField, Min(0f)] private float deathHoldDelay = 0.5f;
+        [SerializeField, Min(0f)] private float enemyRageTransitionDuration = 0.75f;
         [SerializeField, Range(0.05f, 1f)] private float critSlowMotionScale = 0.35f;
         [SerializeField, Min(0f)] private float critSlowMotionDuration = 0.08f;
 
@@ -122,7 +123,7 @@ namespace CrystalMind.MatchMancer
         public string HeroCritMultiplierText => $"{(playerActor != null ? playerActor.RedCritDamageMultiplier : 1f):0.##}x";
         public string HeroActiveSkillText => playerActor != null && playerActor.ActiveSkill != null ? playerActor.ActiveSkill.SkillDescription : string.Empty;
         public string HeroPassiveSkillText => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.PassiveDescription : string.Empty;
-        public string EnemyAttackStatText => $"{(enemyActor != null ? enemyActor.BaseAttackDamage : 0)}+0";
+        public string EnemyAttackStatText => $"{(enemyActor != null ? enemyActor.BaseAttackDamage : 0)}+{(enemyActor != null ? enemyActor.CurrentAttackDamageAddition : 0)}";
         public string EnemyHealStatText => $"{(enemyActor != null ? enemyActor.EnemySelfHealAmount : 0)}+0";
         public string EnemyCritChanceText => FormatPercent(enemyActor != null ? enemyActor.EnemyCritChance : 0f);
         public string EnemyCritMultiplierText => $"{(enemyActor != null ? enemyActor.EnemyCritMultiplier : 1f):0.##}x";
@@ -537,6 +538,15 @@ namespace CrystalMind.MatchMancer
                 yield break;
             }
 
+            yield return StartCoroutine(TryProcessEnemyRageTransitionRoutine());
+
+            if (enemyActor != null && enemyActor.CurrentHp <= 0)
+            {
+                yield return StartCoroutine(HandleEnemyDefeatedRoutine());
+                FinishTurnResolve();
+                yield break;
+            }
+
             TickCurseDurations();
 
             if (TickPlayerPoisonAtTurnStart())
@@ -795,14 +805,42 @@ namespace CrystalMind.MatchMancer
             }
         }
 
-        private void TryReportEnemyRageEntry()
+        private IEnumerator TryProcessEnemyRageTransitionRoutine()
         {
-            if (enemyActor == null || !enemyActor.ConsumeRageEntryPending())
+            if (enemyActor == null || !enemyActor.ConsumeRageTransitionPending())
             {
-                return;
+                yield break;
             }
 
-            LogEnemy($"Enemy entered Rage Mode: {enemyActor.RageAnnouncementText}");
+            if (!IsPlaying || enemyActor.CurrentHp <= 0)
+            {
+                yield break;
+            }
+
+            string announcementText = enemyActor.RageAnnouncementText;
+            SetTurnStatus(announcementText);
+            HighlightEnemyTurn();
+            gameHUD?.ShowEnemySkillText(announcementText);
+            playerActor?.PlayBattleStartVisual();
+            enemyActor.PlayRageThreatPresentation();
+            tinyImpulse?.Shake();
+            LogEnemy($"Enemy Rage transition started: {announcementText}");
+
+            if (enemyRageTransitionDuration > 0f)
+            {
+                yield return new WaitForSeconds(enemyRageTransitionDuration);
+            }
+
+            bool enteredRage = enemyActor.EnterRageMode();
+            gameHUD?.ClearEnemySkillText();
+            playerActor?.ShowIdleVisual();
+            enemyActor.ShowIdleVisual();
+            ClearTurnHighlight();
+
+            if (enteredRage)
+            {
+                LogEnemy($"Enemy entered Rage Mode: {announcementText}");
+            }
         }
 
         private bool TickPlayerPoisonAtTurnStart()
@@ -889,7 +927,6 @@ namespace CrystalMind.MatchMancer
 
             AttackDamageResult damageResult = CalculatePlayerDamage(clearedTileCount);
             enemyActor.TakeDamage(damageResult.Damage);
-            TryReportEnemyRageEntry();
 
             if (damageResult.Damage > 0)
             {

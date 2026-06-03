@@ -22,7 +22,7 @@ namespace CrystalMind.MatchMancer
         private int curseTurnsRemaining;
         private EnemyState currentState = EnemyState.Normal;
         private bool hasEnteredRage;
-        private bool rageEntryPending;
+        private bool rageTransitionPending;
 
         #endregion
 
@@ -37,6 +37,7 @@ namespace CrystalMind.MatchMancer
         public int CurrentAttackDamage => IsRaging && combatProfile != null
             ? Mathf.Max(0, Mathf.RoundToInt(BaseAttackDamage * combatProfile.RageAttackDamageMultiplier))
             : BaseAttackDamage;
+        public int CurrentAttackDamageAddition => Mathf.Max(0, CurrentAttackDamage - BaseAttackDamage);
         public float EnemySpecialDisruptChance => combatProfile != null ? combatProfile.EnemySpecialDisruptChance : 0f;
         public float EnemyApplyCurseChance => combatProfile != null ? combatProfile.EnemyApplyCurseChance : 0f;
         public float TileCurseApplyChance => combatProfile != null
@@ -57,6 +58,7 @@ namespace CrystalMind.MatchMancer
         public EnemyState CurrentState => currentState;
         public bool IsRaging => currentState == EnemyState.Rage;
         public bool HasEnteredRage => hasEnteredRage;
+        public bool IsRageTransitionPending => rageTransitionPending;
         public string RageAnnouncementText => combatProfile != null ? combatProfile.RageAnnouncementText : "RAGE";
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
         public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
@@ -211,6 +213,11 @@ namespace CrystalMind.MatchMancer
             visualController?.PlayBattleStart();
         }
 
+        public void PlayRageThreatPresentation()
+        {
+            PlayBattleStartVisual();
+        }
+
         public void HideVisual()
         {
             visualController?.Hide();
@@ -238,14 +245,28 @@ namespace CrystalMind.MatchMancer
             turnScaleHighlighter?.ClearHighlight();
         }
 
-        public bool ConsumeRageEntryPending()
+        public bool ConsumeRageTransitionPending()
         {
-            if (!rageEntryPending)
+            if (!rageTransitionPending || hasEnteredRage || currentHp <= 0)
             {
                 return false;
             }
 
-            rageEntryPending = false;
+            rageTransitionPending = false;
+            return true;
+        }
+
+        public bool EnterRageMode()
+        {
+            if (combatProfile == null || !combatProfile.EnableRageMode || hasEnteredRage || currentHp <= 0)
+            {
+                rageTransitionPending = false;
+                return false;
+            }
+
+            currentState = EnemyState.Rage;
+            hasEnteredRage = true;
+            rageTransitionPending = false;
             return true;
         }
 
@@ -257,12 +278,12 @@ namespace CrystalMind.MatchMancer
         {
             currentState = EnemyState.Normal;
             hasEnteredRage = false;
-            rageEntryPending = false;
+            rageTransitionPending = false;
         }
 
         private void EvaluateRageState()
         {
-            if (combatProfile == null || !combatProfile.EnableRageMode || hasEnteredRage || currentHp <= 0 || MaxHp <= 0)
+            if (combatProfile == null || !combatProfile.EnableRageMode || hasEnteredRage || rageTransitionPending || currentHp <= 0 || MaxHp <= 0)
             {
                 return;
             }
@@ -274,9 +295,7 @@ namespace CrystalMind.MatchMancer
                 return;
             }
 
-            currentState = EnemyState.Rage;
-            hasEnteredRage = true;
-            rageEntryPending = true;
+            rageTransitionPending = true;
         }
 
         private void ApplyDefinitionVisuals(EnemyDefinition definition)
