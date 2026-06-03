@@ -857,7 +857,7 @@ namespace CrystalMind.MatchMancer
                 return false;
             }
 
-            ShowDamagePopup(poisonDamage, playerActor.DamagePopupAnchor, false);
+            PlayPlayerDamageFeedback(poisonDamage, false, false, Vector3.zero, true, true);
             LogCurse($"Poison deals {poisonDamage} damage. Player HP: {playerActor.CurrentHp}");
 
             if (playerActor.CurrentHp > 0)
@@ -1006,11 +1006,7 @@ namespace CrystalMind.MatchMancer
 
             if (damageResult.Damage > 0)
             {
-                playerActor.PlayGetHitVisual();
-                playerActor.PlayHitMotion(enemyActor.transform.position);
-                ShowDamagePopup(damageResult.Damage, playerActor.DamagePopupAnchor, damageResult.IsCritical);
-                SpawnBloodHitEffects(playerActor.BloodHitAnchor, damageResult.IsCritical);
-                tinyImpulse?.Shake();
+                PlayPlayerDamageFeedback(damageResult.Damage, damageResult.IsCritical, true, enemyActor.transform.position, true, true);
                 TryPlayCriticalSlowMotion(damageResult.IsCritical);
             }
 
@@ -1169,6 +1165,39 @@ namespace CrystalMind.MatchMancer
             }
 
             damagePopupController.ShowDamage(amount, anchor);
+        }
+
+        private void PlayPlayerDamageFeedback(
+            int amount,
+            bool isCritical,
+            bool playHitMotion,
+            Vector3 hitSourceWorldPosition,
+            bool playBlood,
+            bool playShake)
+        {
+            if (playerActor == null || amount <= 0)
+            {
+                return;
+            }
+
+            playerActor.PlayGetHitVisual();
+
+            if (playHitMotion)
+            {
+                playerActor.PlayHitMotion(hitSourceWorldPosition);
+            }
+
+            ShowDamagePopup(amount, playerActor.DamagePopupAnchor, isCritical);
+
+            if (playBlood)
+            {
+                SpawnBloodHitEffects(playerActor.BloodHitAnchor, isCritical);
+            }
+
+            if (playShake)
+            {
+                tinyImpulse?.Shake();
+            }
         }
 
         private void ShowHealPopup(int amount, Transform anchor)
