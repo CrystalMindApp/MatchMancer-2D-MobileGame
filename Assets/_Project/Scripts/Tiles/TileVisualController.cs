@@ -32,9 +32,9 @@ namespace CrystalMind.MatchMancer
         [Tooltip("Temporary debug tint multiplied with the tile base color while the tile has a curse.")]
         [SerializeField] private Color curseDebugTint = new Color(0.35f, 0.35f, 0.35f, 1f);
 
-        [Header("Enhanced Debug Visual")]
-        [Tooltip("Temporary debug tint multiplied with the tile base color while a special tile is Enhanced. Curse tint has priority.")]
-        [SerializeField] private Color enhancedSpecialTintColor = new Color(1f, 0.15f, 0.65f, 1f);
+        [Header("Enhanced Frame")]
+        [Tooltip("Optional overlay/frame shown only while this tile is both special and Enhanced. Curse tint remains on the tile body.")]
+        [SerializeField] private GameObject enhancedFrameRoot;
 
         [Header("References")]
         [SerializeField] private SpriteRenderer targetRenderer;
@@ -62,6 +62,7 @@ namespace CrystalMind.MatchMancer
         {
             CacheReferences();
             CaptureDefaults();
+            SetEnhancedFrameVisible(false);
         }
 
         private void Update()
@@ -80,6 +81,7 @@ namespace CrystalMind.MatchMancer
             isSpecial = false;
             isEnhancedSpecial = false;
             isCursed = false;
+            SetEnhancedFrameVisible(false);
 
             if (targetRenderer != null)
             {
@@ -132,6 +134,7 @@ namespace CrystalMind.MatchMancer
             bool becameSpecial = special && !isSpecial;
             isSpecial = special;
             isEnhancedSpecial = special && enhanced;
+            UpdateEnhancedFrame();
 
             if (becameSpecial && playSpawnAnimation)
             {
@@ -168,6 +171,8 @@ namespace CrystalMind.MatchMancer
             StopRunningVisualRoutines();
             isSelected = false;
             isSpecial = false;
+            isEnhancedSpecial = false;
+            SetEnhancedFrameVisible(false);
             ClearSpecialGlow();
             SpawnParticle(destroyParticlePrefab);
 
@@ -393,6 +398,19 @@ namespace CrystalMind.MatchMancer
             targetRenderer.color = GetDisplayBaseColor();
         }
 
+        private void UpdateEnhancedFrame()
+        {
+            SetEnhancedFrameVisible(isSpecial && isEnhancedSpecial);
+        }
+
+        private void SetEnhancedFrameVisible(bool visible)
+        {
+            if (enhancedFrameRoot != null)
+            {
+                enhancedFrameRoot.SetActive(visible);
+            }
+        }
+
         private Color GetDisplayBaseColor()
         {
             Color tintColor = Color.white;
@@ -400,10 +418,6 @@ namespace CrystalMind.MatchMancer
             if (isCursed)
             {
                 tintColor = curseDebugTint;
-            }
-            else if (isSpecial && isEnhancedSpecial)
-            {
-                tintColor = enhancedSpecialTintColor;
             }
 
             Color tintedColor = baseColor * tintColor;

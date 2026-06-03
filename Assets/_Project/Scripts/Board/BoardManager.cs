@@ -65,6 +65,10 @@ namespace CrystalMind.MatchMancer
         [Tooltip("Use a ClearColorBoardEffectData asset. Color Match uses the source tile color as primary, and Enhanced Color Match may add a secondary color through context.")]
         [SerializeField] private BoardEffectData colorMatchBoardEffect;
 
+        [Header("Debug")]
+        [Tooltip("QA only. Forces newly spawned special tiles to use Enhanced state so enhanced visuals can be tested without multi-color resolve setup.")]
+        [SerializeField] private bool forceEnhancedSpecialSpawnForDebug;
+
         [Header("Generation Settings")]
         [SerializeField, Range(1, 100)] private int maxInitialBoardGenerationAttempts = 25;
 
@@ -1277,6 +1281,12 @@ namespace CrystalMind.MatchMancer
 
         private SpecialTileState GetSpecialTileState(BoardResolveStepContext resolveStepContext)
         {
+            // QA/debug only. Normal Enhanced rules remain active when this is disabled.
+            if (forceEnhancedSpecialSpawnForDebug)
+            {
+                return SpecialTileState.Enhanced;
+            }
+
             return resolveStepContext.HasMultipleMatchedTileTypes
                 ? SpecialTileState.Enhanced
                 : SpecialTileState.Normal;
