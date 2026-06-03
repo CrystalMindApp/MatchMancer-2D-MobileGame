@@ -51,6 +51,7 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private SceneAudioLibrary sceneAudioLibrary;
     [SerializeField] private UIPanelScaleTransition resultPanelTransition;
     [SerializeField] private EnemyIntentUIController enemyIntentUIController;
+    [SerializeField] private StatusIconBarController playerStatusIconBar;
     [SerializeField] private CinemachineTinyImpulse resultTinyImpulse;
 
     [Header("HP Bar Timing")]
@@ -267,6 +268,7 @@ public class GameHUD : MonoBehaviour
         SetText(currentStageText, gameManager.CurrentStageText);
         SetText(currentRoundText, gameManager.CurrentRoundText);
         UpdatePassiveCharge(gameManager.PurplePassiveStack, gameManager.PassiveStackThreshold);
+        RefreshPlayerStatusIcons();
         SetPhaseText(gameManager.IsMatchingPhase ? matchingPhaseLabel : combatPhaseLabel);
         enemyIntentUIController?.UpdateIntent(
             gameManager.EnemySkillTurnsRemaining,
@@ -306,6 +308,14 @@ public class GameHUD : MonoBehaviour
         SetText(enemyDisruptChanceText, gameManager.EnemyDisruptChanceText);
         SetText(enemyDisruptDescriptionText, gameManager.EnemyDisruptDescriptionText);
         SetOptionalText(enemyPassiveSkillText, gameManager.EnemyPassiveSkillText);
+    }
+
+    private void RefreshPlayerStatusIcons()
+    {
+        playerStatusIconBar?.SetPoison(
+            gameManager.PlayerHasPoison,
+            gameManager.PlayerPoisonTurnsRemaining,
+            gameManager.PlayerPoisonDamagePerTurn);
     }
 
     private void RefreshActiveSkillBlocker()

@@ -102,6 +102,9 @@ namespace CrystalMind.MatchMancer
         public int CurrentSkillGauge => playerActor != null ? playerActor.CurrentSkillGauge : 0;
         public int MaxSkillGauge => playerActor != null ? playerActor.MaxSkillGauge : 0;
         public int PurplePassiveStack => playerActor != null ? playerActor.PurplePassiveStack : 0;
+        public bool PlayerHasPoison => playerActor != null && playerActor.HasPoison;
+        public int PlayerPoisonTurnsRemaining => playerActor != null ? playerActor.PoisonTurnsRemaining : 0;
+        public int PlayerPoisonDamagePerTurn => playerActor != null ? playerActor.PoisonDamagePerTurn : 0;
         public GameState CurrentState => currentState;
         public bool IsPlaying => currentState == GameState.Playing;
         public bool IsActiveSkillReady => playerActor != null && playerActor.HasEnoughGauge(playerActor.ActiveSkill);
