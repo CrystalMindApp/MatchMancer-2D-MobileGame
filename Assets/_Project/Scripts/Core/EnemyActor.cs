@@ -34,17 +34,17 @@ namespace CrystalMind.MatchMancer
         public int BaseSpeed => characterData != null ? characterData.BaseSpeed : 0;
         public int CurrentHp => Mathf.Max(0, currentHp);
         public int BaseAttackDamage => characterData != null ? characterData.BaseAttackDamage : 0;
-        public int CurrentAttackDamage => IsRaging && combatProfile != null
+        public int CurrentAttackDamage => IsRaging && combatProfile != null && combatProfile.RageModifyAttackDamage
             ? Mathf.Max(0, Mathf.RoundToInt(BaseAttackDamage * combatProfile.RageAttackDamageMultiplier))
             : BaseAttackDamage;
         public int CurrentAttackDamageAddition => Mathf.Max(0, CurrentAttackDamage - BaseAttackDamage);
         public float EnemySpecialDisruptChance => combatProfile != null ? combatProfile.EnemySpecialDisruptChance : 0f;
         public float EnemyApplyCurseChance => combatProfile != null ? combatProfile.EnemyApplyCurseChance : 0f;
         public float TileCurseApplyChance => combatProfile != null
-            ? Mathf.Clamp01(combatProfile.TileCurseApplyChance + (IsRaging ? combatProfile.RageTileCurseApplyChanceBonus : 0f))
+            ? Mathf.Clamp01(combatProfile.TileCurseApplyChance + (IsRaging && combatProfile.RageModifyTileCurseApplyChance ? combatProfile.RageTileCurseApplyChanceBonus : 0f))
             : 0f;
         public int TileCurseApplyCount => combatProfile != null
-            ? Mathf.Max(0, combatProfile.TileCurseApplyCount + (IsRaging ? combatProfile.RageTileCurseApplyCountBonus : 0))
+            ? Mathf.Max(0, combatProfile.TileCurseApplyCount + (IsRaging && combatProfile.RageModifyTileCurseApplyCount ? combatProfile.RageTileCurseApplyCountBonus : 0))
             : 0;
         public CurseEffectData TileCurseEffect => combatProfile != null ? combatProfile.TileCurseEffect : null;
         public float EnemyCritChance => combatProfile != null ? combatProfile.EnemyCritChance : 0f;

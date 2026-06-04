@@ -27,6 +27,7 @@ namespace CrystalMind.MatchMancer
 
             if (remainingTurnsText != null)
             {
+                remainingTurnsText.gameObject.SetActive(true);
                 remainingTurnsText.text = Mathf.Max(0, turnsRemaining).ToString();
             }
 
@@ -38,6 +39,27 @@ namespace CrystalMind.MatchMancer
             bool hasAmount = amount > 0;
             amountText.gameObject.SetActive(hasAmount);
             amountText.text = hasAmount ? amount.ToString() : string.Empty;
+        }
+
+        public void SetIconOnly(Sprite icon)
+        {
+            if (iconImage != null)
+            {
+                iconImage.sprite = icon;
+                iconImage.enabled = icon != null;
+            }
+
+            if (remainingTurnsText != null)
+            {
+                remainingTurnsText.gameObject.SetActive(false);
+                remainingTurnsText.text = string.Empty;
+            }
+
+            if (amountText != null)
+            {
+                amountText.gameObject.SetActive(false);
+                amountText.text = string.Empty;
+            }
         }
 
         #endregion

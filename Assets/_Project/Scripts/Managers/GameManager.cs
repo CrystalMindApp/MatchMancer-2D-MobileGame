@@ -105,6 +105,11 @@ namespace CrystalMind.MatchMancer
         public bool PlayerHasPoison => playerActor != null && playerActor.HasPoison;
         public int PlayerPoisonTurnsRemaining => playerActor != null ? playerActor.PoisonTurnsRemaining : 0;
         public int PlayerPoisonDamagePerTurn => playerActor != null ? playerActor.PoisonDamagePerTurn : 0;
+        public bool EnemyHasTileCurseTrait => enemyActor != null &&
+            enemyActor.TileCurseEffect != null &&
+            enemyActor.TileCurseApplyChance > 0f &&
+            enemyActor.TileCurseApplyCount > 0;
+        public CurseEffectData EnemyTileCurseTraitEffect => EnemyHasTileCurseTrait ? enemyActor.TileCurseEffect : null;
         public GameState CurrentState => currentState;
         public bool IsPlaying => currentState == GameState.Playing;
         public bool IsActiveSkillReady => playerActor != null && playerActor.HasEnoughGauge(playerActor.ActiveSkill);

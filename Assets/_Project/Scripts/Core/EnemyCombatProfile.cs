@@ -33,10 +33,16 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private bool enableRageMode;
         [Tooltip("Enemy enters Rage when Current HP / Max HP is at or below this value.")]
         [SerializeField, Range(0f, 1f)] private float rageHpThreshold01 = 0.5f;
+        [Tooltip("When enabled, Rage applies Rage Attack Damage Multiplier to enemy attack damage.")]
+        [SerializeField] private bool rageModifyAttackDamage = true;
         [Tooltip("Multiplier applied to enemy attack damage while raging.")]
         [SerializeField, Min(0f)] private float rageAttackDamageMultiplier = 1f;
+        [Tooltip("When enabled, Rage applies Rage Tile Curse Apply Chance Bonus to resolved tile curse chance.")]
+        [SerializeField] private bool rageModifyTileCurseApplyChance;
         [Tooltip("Additive modifier applied to tile curse chance while raging. Final chance is clamped by EnemyActor.")]
         [SerializeField] private float rageTileCurseApplyChanceBonus;
+        [Tooltip("When enabled, Rage applies Rage Tile Curse Apply Count Bonus to resolved tile curse count.")]
+        [SerializeField] private bool rageModifyTileCurseApplyCount;
         [Tooltip("Additive modifier applied to tile curse count while raging. Final count is clamped by EnemyActor.")]
         [SerializeField] private int rageTileCurseApplyCountBonus;
         [Tooltip("Short debug/HUD-ready announcement text for Rage entry.")]
@@ -60,8 +66,11 @@ namespace CrystalMind.MatchMancer
         public CurseEffectData TileCurseEffect => tileCurseEffect;
         public bool EnableRageMode => enableRageMode;
         public float RageHpThreshold01 => Mathf.Clamp01(rageHpThreshold01);
+        public bool RageModifyAttackDamage => rageModifyAttackDamage;
         public float RageAttackDamageMultiplier => Mathf.Max(0f, rageAttackDamageMultiplier);
+        public bool RageModifyTileCurseApplyChance => rageModifyTileCurseApplyChance;
         public float RageTileCurseApplyChanceBonus => rageTileCurseApplyChanceBonus;
+        public bool RageModifyTileCurseApplyCount => rageModifyTileCurseApplyCount;
         public int RageTileCurseApplyCountBonus => rageTileCurseApplyCountBonus;
         public string RageAnnouncementText => string.IsNullOrWhiteSpace(rageAnnouncementText) ? "RAGE" : rageAnnouncementText;
         public float EnemyCritChance => enemyCritChance;

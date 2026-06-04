@@ -52,6 +52,7 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private UIPanelScaleTransition resultPanelTransition;
     [SerializeField] private EnemyIntentUIController enemyIntentUIController;
     [SerializeField] private StatusIconBarController playerStatusIconBar;
+    [SerializeField] private EnemyTraitIconController enemyTraitIconController;
     [SerializeField] private CinemachineTinyImpulse resultTinyImpulse;
 
     [Header("HP Bar Timing")]
@@ -269,6 +270,7 @@ public class GameHUD : MonoBehaviour
         SetText(currentRoundText, gameManager.CurrentRoundText);
         UpdatePassiveCharge(gameManager.PurplePassiveStack, gameManager.PassiveStackThreshold);
         RefreshPlayerStatusIcons();
+        RefreshEnemyTraitIcon();
         SetPhaseText(gameManager.IsMatchingPhase ? matchingPhaseLabel : combatPhaseLabel);
         enemyIntentUIController?.UpdateIntent(
             gameManager.EnemySkillTurnsRemaining,
@@ -316,6 +318,13 @@ public class GameHUD : MonoBehaviour
             gameManager.PlayerHasPoison,
             gameManager.PlayerPoisonTurnsRemaining,
             gameManager.PlayerPoisonDamagePerTurn);
+    }
+
+    private void RefreshEnemyTraitIcon()
+    {
+        enemyTraitIconController?.SetCurseTrait(
+            gameManager.EnemyHasTileCurseTrait,
+            gameManager.EnemyTileCurseTraitEffect);
     }
 
     private void RefreshActiveSkillBlocker()
