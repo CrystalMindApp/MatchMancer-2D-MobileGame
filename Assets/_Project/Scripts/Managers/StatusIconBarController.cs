@@ -6,13 +6,15 @@ namespace CrystalMind.MatchMancer
     {
         #region Variables
 
-        [Header("Poison Status")]
+        [Header("Player Status Icons")]
         [SerializeField] private StatusIconView statusIconPrefab;
         [SerializeField] private Transform iconContainer;
         [SerializeField] private Sprite poisonIcon;
+        [SerializeField] private Sprite blindIcon;
 
         // State
         private StatusIconView poisonIconView;
+        private StatusIconView blindIconView;
 
         #endregion
 
@@ -33,6 +35,23 @@ namespace CrystalMind.MatchMancer
 
             poisonIconView.gameObject.SetActive(true);
             poisonIconView.Set(poisonIcon, turnsRemaining, damagePerTurn);
+        }
+
+        public void SetBlind(bool active, int attemptsRemaining)
+        {
+            if (!active || attemptsRemaining <= 0)
+            {
+                HideBlindIcon();
+                return;
+            }
+
+            if (!EnsureBlindIcon())
+            {
+                return;
+            }
+
+            blindIconView.gameObject.SetActive(true);
+            blindIconView.Set(blindIcon, attemptsRemaining, 0);
         }
 
         #endregion
@@ -56,11 +75,36 @@ namespace CrystalMind.MatchMancer
             return poisonIconView != null;
         }
 
+        private bool EnsureBlindIcon()
+        {
+            if (blindIconView != null)
+            {
+                return true;
+            }
+
+            if (statusIconPrefab == null || blindIcon == null)
+            {
+                return false;
+            }
+
+            Transform parent = iconContainer != null ? iconContainer : transform;
+            blindIconView = Instantiate(statusIconPrefab, parent);
+            return blindIconView != null;
+        }
+
         private void HidePoisonIcon()
         {
             if (poisonIconView != null)
             {
                 poisonIconView.gameObject.SetActive(false);
+            }
+        }
+
+        private void HideBlindIcon()
+        {
+            if (blindIconView != null)
+            {
+                blindIconView.gameObject.SetActive(false);
             }
         }
 

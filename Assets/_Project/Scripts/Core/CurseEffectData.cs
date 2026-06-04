@@ -12,7 +12,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private CurseType curseType = CurseType.Poison;
 
         [Header("Shared Settings")]
-        [Tooltip("Number of player turns this curse effect should last when applied in a future curse trigger phase.")]
+        [Tooltip("Duration for this curse effect. Poison uses player turns. Blind uses attack attempts.")]
         [SerializeField, Min(1)] private int durationTurns = 2;
 
         [Header("Poison Settings")]
@@ -32,6 +32,50 @@ namespace CrystalMind.MatchMancer
         public int DurationTurns => Mathf.Max(1, durationTurns);
         public int PoisonDamagePerTurn => Mathf.Max(0, poisonDamagePerTurn);
         public float BlindHitChancePenalty => Mathf.Clamp01(blindHitChancePenalty);
+
+        #endregion
+
+        #region Public Methods
+
+        public void Apply(CurseEffectContext context)
+        {
+            switch (curseType)
+            {
+                case CurseType.Poison:
+                    ApplyPoison(context);
+                    return;
+
+                case CurseType.Blind:
+                    ApplyBlind(context);
+                    return;
+            }
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private void ApplyPoison(CurseEffectContext context)
+        {
+            if (context.Player == null)
+            {
+                Debug.LogWarning($"CurseEffectData '{CurseName}' could not apply Poison because PlayerActor is missing.");
+                return;
+            }
+
+            context.Player.ApplyPoison(PoisonDamagePerTurn, DurationTurns);
+        }
+
+        private void ApplyBlind(CurseEffectContext context)
+        {
+            if (context.Player == null)
+            {
+                Debug.LogWarning($"CurseEffectData '{CurseName}' could not apply Blind because PlayerActor is missing.");
+                return;
+            }
+
+            context.Player.ApplyBlind(BlindHitChancePenalty, DurationTurns);
+        }
 
         #endregion
     }

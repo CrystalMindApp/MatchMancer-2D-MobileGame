@@ -15,6 +15,9 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Transform damagePopupAnchor;
         [SerializeField] private Transform bloodHitAnchor;
 
+        [Header("Combat")]
+        [SerializeField, Range(0f, 1f)] private float baseHitChance = 1f;
+
         // State
         private int currentHp;
         private bool isCursed;
@@ -25,6 +28,8 @@ namespace CrystalMind.MatchMancer
         private int currentTurnSpeedBonus;
         private int poisonDamagePerTurn;
         private int poisonTurnsRemaining;
+        private float blindHitChancePenalty;
+        private int blindAttemptsRemaining;
         private bool passiveReady;
         private bool passiveTriggeredThisTurn;
 
@@ -46,6 +51,8 @@ namespace CrystalMind.MatchMancer
         public int BaseDamagePerTile => combatProfile != null ? combatProfile.BaseDamagePerTile : 0;
         public float RedCritChancePerTile => combatProfile != null ? combatProfile.RedCritChancePerTile : 0f;
         public float RedCritDamageMultiplier => combatProfile != null ? combatProfile.RedCritDamageMultiplier : 1f;
+        public float BaseHitChance => Mathf.Clamp01(baseHitChance);
+        public float CurrentHitChancePenalty => HasBlind ? BlindHitChancePenalty : 0f;
         public int GreenHealPerTile => combatProfile != null ? combatProfile.GreenHealPerTile : 0;
         public int SpeedGainPerYellowTile => combatProfile != null ? combatProfile.SpeedGainPerYellowTile : 0;
         public int CurrentSkillGauge => currentSkillGauge;
@@ -58,6 +65,9 @@ namespace CrystalMind.MatchMancer
         public bool HasPoison => poisonTurnsRemaining > 0 && poisonDamagePerTurn > 0;
         public int PoisonTurnsRemaining => Mathf.Max(0, poisonTurnsRemaining);
         public int PoisonDamagePerTurn => Mathf.Max(0, poisonDamagePerTurn);
+        public bool HasBlind => blindAttemptsRemaining > 0 && blindHitChancePenalty > 0f;
+        public float BlindHitChancePenalty => Mathf.Clamp01(blindHitChancePenalty);
+        public int BlindAttemptsRemaining => Mathf.Max(0, blindAttemptsRemaining);
         public Transform DamagePopupAnchor => damagePopupAnchor != null ? damagePopupAnchor : transform;
         public Transform BloodHitAnchor => bloodHitAnchor != null ? bloodHitAnchor : DamagePopupAnchor;
 
@@ -93,6 +103,8 @@ namespace CrystalMind.MatchMancer
             currentTurnSpeedBonus = 0;
             poisonDamagePerTurn = 0;
             poisonTurnsRemaining = 0;
+            blindHitChancePenalty = 0f;
+            blindAttemptsRemaining = 0;
             passiveReady = false;
             passiveTriggeredThisTurn = false;
         }
@@ -130,6 +142,37 @@ namespace CrystalMind.MatchMancer
             }
 
             return damage;
+        }
+
+        public void ApplyBlind(float penalty, int attempts)
+        {
+            float safePenalty = Mathf.Clamp01(penalty);
+            int safeAttempts = Mathf.Max(0, attempts);
+
+            if (safePenalty <= 0f || safeAttempts <= 0)
+            {
+                return;
+            }
+
+            blindHitChancePenalty = Mathf.Max(blindHitChancePenalty, safePenalty);
+            blindAttemptsRemaining = Mathf.Max(blindAttemptsRemaining, safeAttempts);
+        }
+
+        public void ConsumeBlindAttackAttempt()
+        {
+            if (!HasBlind)
+            {
+                return;
+            }
+
+            blindAttemptsRemaining = Mathf.Max(0, blindAttemptsRemaining - 1);
+
+            if (blindAttemptsRemaining > 0)
+            {
+                return;
+            }
+
+            blindHitChancePenalty = 0f;
         }
 
         public void AddSkillGauge(int amount)

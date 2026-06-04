@@ -318,6 +318,9 @@ public class GameHUD : MonoBehaviour
             gameManager.PlayerHasPoison,
             gameManager.PlayerPoisonTurnsRemaining,
             gameManager.PlayerPoisonDamagePerTurn);
+        playerStatusIconBar?.SetBlind(
+            gameManager.PlayerHasBlind,
+            gameManager.PlayerBlindAttemptsRemaining);
     }
 
     private void RefreshEnemyTraitIcon()

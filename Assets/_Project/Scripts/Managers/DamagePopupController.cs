@@ -24,6 +24,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Color damageColor = Color.white;
         [SerializeField] private Color criticalDamageColor = new Color(1f, 0.35f, 0.05f, 1f);
         [SerializeField] private Color healColor = new Color(0.25f, 1f, 0.35f, 1f);
+        [SerializeField] private Color missColor = new Color(0.75f, 0.75f, 0.75f, 1f);
         [SerializeField, Min(0f)] private float criticalScaleMultiplier = 1.5f;
         [SerializeField, Min(0f)] private float healScaleMultiplier = 1.2f;
 
@@ -67,6 +68,11 @@ namespace CrystalMind.MatchMancer
             ShowPopup(amount, anchor, DamagePopupType.Heal);
         }
 
+        public void ShowMiss(Transform anchor)
+        {
+            ShowTextPopup("MISS", anchor, missColor, 1f);
+        }
+
         public void ShowPopup(int amount, Transform anchor, DamagePopupType popupType)
         {
             if (amount <= 0 || anchor == null)
@@ -86,18 +92,7 @@ namespace CrystalMind.MatchMancer
             Color popupColor = GetPopupColor(popupType);
             float scaleMultiplier = GetPopupScaleMultiplier(popupType);
 
-            popup.Play(
-                GetPopupText(amount, popupType),
-                anchor,
-                targetCanvas,
-                GetWorldCamera(),
-                startScreenOffset,
-                floatScreenOffset,
-                popupDuration,
-                Vector3.one * startScale * scaleMultiplier,
-                Vector3.one * punchScale * scaleMultiplier,
-                popupColor,
-                ReleasePopup);
+            PlayPopup(popup, GetPopupText(amount, popupType), anchor, popupColor, scaleMultiplier);
         }
 
         #endregion
@@ -144,6 +139,46 @@ namespace CrystalMind.MatchMancer
             }
 
             return CreatePopup();
+        }
+
+        private void ShowTextPopup(string text, Transform anchor, Color popupColor, float scaleMultiplier)
+        {
+            if (string.IsNullOrWhiteSpace(text) || anchor == null)
+            {
+                return;
+            }
+
+            InitializePool();
+
+            if (targetCanvas == null || popupPrefab == null)
+            {
+                return;
+            }
+
+            DamagePopupItem popup = GetPopup();
+            activePopups.Add(popup);
+            PlayPopup(popup, text, anchor, popupColor, Mathf.Max(0f, scaleMultiplier));
+        }
+
+        private void PlayPopup(DamagePopupItem popup, string text, Transform anchor, Color popupColor, float scaleMultiplier)
+        {
+            if (popup == null)
+            {
+                return;
+            }
+
+            popup.Play(
+                text,
+                anchor,
+                targetCanvas,
+                GetWorldCamera(),
+                startScreenOffset,
+                floatScreenOffset,
+                popupDuration,
+                Vector3.one * startScale * scaleMultiplier,
+                Vector3.one * punchScale * scaleMultiplier,
+                popupColor,
+                ReleasePopup);
         }
 
         private DamagePopupItem CreatePopup()

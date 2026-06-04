@@ -85,12 +85,6 @@ namespace CrystalMind.MatchMancer
         private EnemyDefinition[] activeEnemyRoundSequence;
         private string currentStageName = "Stage";
 
-        private struct AttackDamageResult
-        {
-            public int Damage;
-            public bool IsCritical;
-        }
-
         #endregion
 
         #region Properties
@@ -105,6 +99,8 @@ namespace CrystalMind.MatchMancer
         public bool PlayerHasPoison => playerActor != null && playerActor.HasPoison;
         public int PlayerPoisonTurnsRemaining => playerActor != null ? playerActor.PoisonTurnsRemaining : 0;
         public int PlayerPoisonDamagePerTurn => playerActor != null ? playerActor.PoisonDamagePerTurn : 0;
+        public bool PlayerHasBlind => playerActor != null && playerActor.HasBlind;
+        public int PlayerBlindAttemptsRemaining => playerActor != null ? playerActor.BlindAttemptsRemaining : 0;
         public bool EnemyHasTileCurseTrait => enemyActor != null &&
             enemyActor.TileCurseEffect != null &&
             enemyActor.TileCurseApplyChance > 0f &&
@@ -795,22 +791,14 @@ namespace CrystalMind.MatchMancer
 
         private void ApplyTriggeredTileCurse(CurseEffectData curseEffect)
         {
-            if (curseEffect == null || playerActor == null)
+            if (curseEffect == null)
             {
                 return;
             }
 
-            switch (curseEffect.CurseType)
-            {
-                case CurseType.Poison:
-                    playerActor.ApplyPoison(curseEffect.PoisonDamagePerTurn, curseEffect.DurationTurns);
-                    LogCurse($"Tile curse triggered: {curseEffect.CurseName} applied Poison for {curseEffect.DurationTurns} turn(s).");
-                    break;
-
-                case CurseType.Blind:
-                    LogCurse($"Tile curse triggered: {curseEffect.CurseName} is Blind, but Blind is not implemented in D2.");
-                    break;
-            }
+            CurseEffectContext context = new CurseEffectContext(playerActor, enemyActor);
+            curseEffect.Apply(context);
+            LogCurse($"Tile curse triggered: {curseEffect.CurseName} applied {curseEffect.CurseType} for {curseEffect.DurationTurns} duration unit(s).");
         }
 
         private IEnumerator TryProcessEnemyRageTransitionRoutine()
@@ -933,22 +921,34 @@ namespace CrystalMind.MatchMancer
 
             yield return new WaitForSeconds(attackImpactDelay);
 
-            AttackDamageResult damageResult = CalculatePlayerDamage(clearedTileCount);
-            enemyActor.TakeDamage(damageResult.Damage);
+            AttackResult attackResult = CalculatePlayerDamage(clearedTileCount);
+            playerActor.ConsumeBlindAttackAttempt();
 
-            if (damageResult.Damage > 0)
+            if (attackResult.IsMiss)
+            {
+                ShowMissPopup(enemyActor.DamagePopupAnchor);
+            }
+
+            if (attackResult.IsHit)
+            {
+                enemyActor.TakeDamage(attackResult.Damage);
+            }
+
+            if (attackResult.Damage > 0)
             {
                 enemyActor.PlayGetHitVisual();
                 enemyActor.PlayHitMotion(playerActor.transform.position);
-                ShowDamagePopup(damageResult.Damage, enemyActor.DamagePopupAnchor, damageResult.IsCritical);
-                SpawnBloodHitEffects(enemyActor.BloodHitAnchor, damageResult.IsCritical);
+                ShowDamagePopup(attackResult.Damage, enemyActor.DamagePopupAnchor, attackResult.IsCritical);
+                SpawnBloodHitEffects(enemyActor.BloodHitAnchor, attackResult.IsCritical);
                 tinyImpulse?.Shake();
-                TryPlayCriticalSlowMotion(damageResult.IsCritical);
+                TryPlayCriticalSlowMotion(attackResult.IsCritical);
             }
 
             pendingCritChance = 0f;
 
-            LogEnemy($"Player deals {damageResult.Damage} damage. Enemy HP: {enemyActor.CurrentHp}");
+            LogEnemy(attackResult.IsMiss
+                ? "Player attack missed."
+                : $"Player deals {attackResult.Damage} damage. Enemy HP: {enemyActor.CurrentHp}");
 
             yield return new WaitForSeconds(postImpactHoldDelay);
 
@@ -970,28 +970,29 @@ namespace CrystalMind.MatchMancer
             ResolvePlayerPassive(PassiveSkillTiming.AfterAttack);
         }
 
-        private AttackDamageResult CalculatePlayerDamage(int clearedTileCount)
+        private AttackResult CalculatePlayerDamage(int clearedTileCount)
         {
-            float damage = clearedTileCount * playerActor.BaseDamagePerTile * playerActor.AttackMultiplier;
-            bool isCritical = Random.value < pendingCritChance;
-
             if (playerActor.IsAttackMissed())
             {
                 LogCurse("Player attack missed due to Curse.");
-                return new AttackDamageResult();
+                return AttackResult.Miss();
             }
 
-            if (isCritical)
+            int baseDamage = clearedTileCount * playerActor.BaseDamagePerTile;
+            AttackResult attackResult = CombatAttackResolver.Resolve(
+                baseDamage,
+                playerActor.AttackMultiplier,
+                playerActor.BaseHitChance,
+                playerActor.CurrentHitChancePenalty,
+                pendingCritChance,
+                playerActor.RedCritDamageMultiplier);
+
+            if (attackResult.IsCritical)
             {
-                damage *= playerActor.RedCritDamageMultiplier;
                 LogPlayer("Red effect: critical hit!");
             }
 
-            return new AttackDamageResult
-            {
-                Damage = Mathf.Max(0, Mathf.RoundToInt(damage)),
-                IsCritical = isCritical
-            };
+            return attackResult;
         }
 
         private IEnumerator EnemyAttackRoutine(bool canAttemptSpecial)
@@ -1003,24 +1004,31 @@ namespace CrystalMind.MatchMancer
 
             yield return new WaitForSeconds(attackImpactDelay);
 
-            AttackDamageResult damageResult = CalculateEnemyDamage();
+            AttackResult attackResult = CalculateEnemyDamage();
+            enemyActor.ConsumeBlindAttackAttempt();
 
-            if (damageResult.Damage <= 0)
+            if (attackResult.IsMiss)
             {
+                ShowMissPopup(playerActor.DamagePopupAnchor);
                 LogCurse("Enemy attack missed due to Curse.");
             }
 
-            playerActor.TakeDamage(damageResult.Damage);
-
-            if (damageResult.Damage > 0)
+            if (attackResult.IsHit)
             {
-                PlayPlayerDamageFeedback(damageResult.Damage, damageResult.IsCritical, true, enemyActor.transform.position, true, true);
-                TryPlayCriticalSlowMotion(damageResult.IsCritical);
+                playerActor.TakeDamage(attackResult.Damage);
             }
 
-            LogEnemy($"Enemy attacks for {damageResult.Damage}. Player HP: {playerActor.CurrentHp}");
+            if (attackResult.Damage > 0)
+            {
+                PlayPlayerDamageFeedback(attackResult.Damage, attackResult.IsCritical, true, enemyActor.transform.position, true, true);
+                TryPlayCriticalSlowMotion(attackResult.IsCritical);
+            }
 
-            if (canAttemptSpecial && damageResult.Damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
+            LogEnemy(attackResult.IsMiss
+                ? "Enemy attack missed."
+                : $"Enemy attacks for {attackResult.Damage}. Player HP: {playerActor.CurrentHp}");
+
+            if (canAttemptSpecial && attackResult.Damage > 0 && Random.value < enemyActor.EnemyApplyCurseChance)
             {
                 enemyActor.PlaySkillVisual();
                 ApplyCurseToPlayer();
@@ -1136,27 +1144,27 @@ namespace CrystalMind.MatchMancer
             enemySkillTurnsRemaining = Mathf.Max(0, enemySkillTurnsRemaining - 1);
         }
 
-        private AttackDamageResult CalculateEnemyDamage()
+        private AttackResult CalculateEnemyDamage()
         {
             if (enemyActor.IsAttackMissed())
             {
-                return new AttackDamageResult();
+                return AttackResult.Miss();
             }
 
-            int damage = enemyActor.CurrentAttackDamage;
-            bool isCritical = Random.value < enemyActor.EnemyCritChance;
+            AttackResult attackResult = CombatAttackResolver.Resolve(
+                enemyActor.CurrentAttackDamage,
+                1f,
+                enemyActor.BaseHitChance,
+                enemyActor.CurrentHitChancePenalty,
+                enemyActor.EnemyCritChance,
+                enemyActor.EnemyCritMultiplier);
 
-            if (isCritical)
+            if (attackResult.IsCritical)
             {
-                damage = Mathf.RoundToInt(damage * enemyActor.EnemyCritMultiplier);
                 LogEnemy("Enemy critical hit!");
             }
 
-            return new AttackDamageResult
-            {
-                Damage = Mathf.Max(0, damage),
-                IsCritical = isCritical
-            };
+            return attackResult;
         }
 
         private void ShowDamagePopup(int amount, Transform anchor, bool isCritical)
@@ -1173,6 +1181,11 @@ namespace CrystalMind.MatchMancer
             }
 
             damagePopupController.ShowDamage(amount, anchor);
+        }
+
+        private void ShowMissPopup(Transform anchor)
+        {
+            damagePopupController?.ShowMiss(anchor);
         }
 
         private void PlayPlayerDamageFeedback(
