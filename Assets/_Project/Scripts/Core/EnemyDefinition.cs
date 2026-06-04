@@ -9,14 +9,17 @@ namespace CrystalMind.MatchMancer
 
         [Header("Settings")]
         [SerializeField] private string displayName;
+        [SerializeField] private EnemyArchetype archetype = EnemyArchetype.Standard;
+        [SerializeField, TextArea] private string description;
+        [SerializeField, TextArea] private string traitDescription;
 
         [Header("References")]
         [SerializeField] private CharacterData characterData;
         [SerializeField] private EnemyCombatProfile combatProfile;
-        [SerializeField] private Sprite idleSprite;
-        [SerializeField] private Sprite attackSprite;
-        [SerializeField] private Sprite skillSprite;
-        [SerializeField] private Sprite getHitSprite;
+        [SerializeField] private Sprite portrait;
+        [SerializeField] private Sprite traitPreviewIcon;
+        [SerializeField] private Sprite defaultIdleSprite;
+        [SerializeField] private RuntimeAnimatorController animatorController;
 
         // Cache
 
@@ -46,12 +49,15 @@ namespace CrystalMind.MatchMancer
 
         public CharacterData CharacterData => characterData;
         public EnemyCombatProfile CombatProfile => combatProfile;
-        public Sprite IdleSprite => idleSprite;
-        public Sprite AttackSprite => attackSprite;
-        public Sprite SkillSprite => skillSprite;
-        public Sprite GetHitSprite => getHitSprite;
+        public EnemyArchetype Archetype => archetype;
+        public string Description => string.IsNullOrWhiteSpace(description) ? string.Empty : description;
+        public string TraitDescription => string.IsNullOrWhiteSpace(traitDescription) ? string.Empty : traitDescription;
+        public Sprite Portrait => portrait;
+        public Sprite TraitPreviewIcon => traitPreviewIcon;
+        public Sprite DefaultIdleSprite => defaultIdleSprite;
+        public RuntimeAnimatorController AnimatorController => animatorController;
         public bool IsValid => characterData != null && combatProfile != null;
-        public bool HasVisualSprites => idleSprite != null || attackSprite != null || skillSprite != null || getHitSprite != null;
+        public bool HasVisualSetup => defaultIdleSprite != null || animatorController != null;
 
         #endregion
     }

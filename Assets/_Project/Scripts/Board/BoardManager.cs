@@ -47,8 +47,24 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private GameObject bombTileDestroyEffectPrefab;
         [SerializeField] private GameObject horizontalTileDestroyEffectPrefab;
         [SerializeField] private GameObject verticalTileDestroyEffectPrefab;
+        [Tooltip("Optional data-driven special destroy effect mappings. These are checked before the legacy fixed fields above.")]
+        [SerializeField] private SpecialTileDestroyEffectSet[] specialTileDestroyEffectSets;
         [SerializeField, Min(0f)] private float tileDestroyEffectLifetime = 1f;
         [SerializeField] private Transform tileDestroyEffectParent;
+
+        [Header("Special Tile Spawn VFX")]
+        [Tooltip("Color-based spawn VFX mappings used when any special tile is created. The special type does not affect this lookup.")]
+        [SerializeField] private TileColorVfxSet[] specialTileSpawnVfxSets;
+        [SerializeField, Min(0f)] private float specialTileSpawnVfxLifetime = 0.75f;
+        [SerializeField] private Transform specialTileSpawnVfxParent;
+
+        [Header("Disrupt VFX")]
+        [Tooltip("Spawned when enemy disrupt removes or converts a special tile.")]
+        [SerializeField] private GameObject disruptVfxPrefab;
+        [SerializeField, Min(0f)] private float disruptVfxLifetime = 0.75f;
+        [SerializeField] private Transform disruptVfxParent;
+
+        [Header("Special Clear Wave Timing")]
         [SerializeField, Min(0f)] private float specialWaveStepDelay = 0.035f;
         [SerializeField, Min(0f)] private float bombWaveStepDelay = 0.045f;
         [SerializeField, Min(0f)] private float lineWaveStepDelay = 0.035f;
@@ -282,6 +298,18 @@ namespace CrystalMind.MatchMancer
                 .Any(tile => tile != null && tile.Type == targetType);
         }
 
+        public bool HasSpecialTile()
+        {
+            return GetActiveTiles()
+                .Any(tile => tile != null && tile.IsSpecial);
+        }
+
+        public bool HasUncursedTile()
+        {
+            return GetActiveTiles()
+                .Any(tile => tile != null && !tile.IsCursed);
+        }
+
         public void SetInputBlocked(bool blocked)
         {
             isExternalInputBlocked = blocked;
@@ -341,6 +369,7 @@ namespace CrystalMind.MatchMancer
             }
 
             Tile targetTile = specialTiles[UnityEngine.Random.Range(0, specialTiles.Count)];
+            SpawnDisruptVfx(targetTile);
             targetTile.SetSpecialType(SpecialTileType.None);
             Debug.Log($"BoardManager: Enemy disruption removed special tile at [{targetTile.Row}, {targetTile.Col}].");
             return true;
@@ -1960,6 +1989,13 @@ namespace CrystalMind.MatchMancer
 
         private GameObject GetTileDestroyEffectPrefab(SpecialTileType specialType)
         {
+            GameObject mappedPrefab = GetMappedSpecialDestroyEffectPrefab(specialType);
+
+            if (mappedPrefab != null)
+            {
+                return mappedPrefab;
+            }
+
             switch (specialType)
             {
                 case SpecialTileType.Bomb:
@@ -1974,6 +2010,26 @@ namespace CrystalMind.MatchMancer
                 default:
                     return tileDestroyEffectPrefab;
             }
+        }
+
+        private GameObject GetMappedSpecialDestroyEffectPrefab(SpecialTileType specialType)
+        {
+            if (specialType == SpecialTileType.None || specialTileDestroyEffectSets == null)
+            {
+                return null;
+            }
+
+            foreach (SpecialTileDestroyEffectSet effectSet in specialTileDestroyEffectSets)
+            {
+                if (effectSet == null || !effectSet.IsValid || effectSet.SpecialTileType != specialType)
+                {
+                    continue;
+                }
+
+                return effectSet.DestroyEffectPrefab;
+            }
+
+            return null;
         }
 
         private void TintTileDestroyEffect(GameObject effectInstance, Color tintColor)
@@ -2059,12 +2115,78 @@ namespace CrystalMind.MatchMancer
             bool createsSpecial = !tile.IsSpecial && specialType != SpecialTileType.None;
             tile.SetSpecialType(specialType, specialState);
 
-            if (createsSpecial && playSpawnSfx)
+            if (!createsSpecial)
+            {
+                return false;
+            }
+
+            SpawnSpecialTileSpawnVfx(tile);
+
+            if (playSpawnSfx)
             {
                 PlaySpecialTileSpawnSfx();
             }
 
-            return createsSpecial;
+            return true;
+        }
+
+        private void SpawnSpecialTileSpawnVfx(Tile tile)
+        {
+            if (tile == null)
+            {
+                return;
+            }
+
+            GameObject effectPrefab = GetSpecialTileSpawnVfxPrefab(tile.Type);
+
+            if (effectPrefab == null)
+            {
+                return;
+            }
+
+            Transform parent = specialTileSpawnVfxParent != null ? specialTileSpawnVfxParent : tileDestroyEffectParent;
+            GameObject effectInstance = Instantiate(effectPrefab, tile.transform.position, Quaternion.identity, parent);
+
+            if (specialTileSpawnVfxLifetime > 0f)
+            {
+                Destroy(effectInstance, specialTileSpawnVfxLifetime);
+            }
+        }
+
+        private GameObject GetSpecialTileSpawnVfxPrefab(TileType tileType)
+        {
+            if (specialTileSpawnVfxSets == null)
+            {
+                return null;
+            }
+
+            foreach (TileColorVfxSet vfxSet in specialTileSpawnVfxSets)
+            {
+                if (vfxSet == null || !vfxSet.IsValid || vfxSet.TileType != tileType)
+                {
+                    continue;
+                }
+
+                return vfxSet.EffectPrefab;
+            }
+
+            return null;
+        }
+
+        private void SpawnDisruptVfx(Tile tile)
+        {
+            if (tile == null || disruptVfxPrefab == null)
+            {
+                return;
+            }
+
+            Transform parent = disruptVfxParent != null ? disruptVfxParent : tileDestroyEffectParent;
+            GameObject effectInstance = Instantiate(disruptVfxPrefab, tile.transform.position, Quaternion.identity, parent);
+
+            if (disruptVfxLifetime > 0f)
+            {
+                Destroy(effectInstance, disruptVfxLifetime);
+            }
         }
 
         private SceneAudioLibrary GetSceneAudioLibrary()

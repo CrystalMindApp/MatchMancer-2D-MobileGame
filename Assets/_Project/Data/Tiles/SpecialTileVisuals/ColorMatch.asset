@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e421ab5a8b64ecbae4a86ef335b69b0, type: 3}
+  m_Name: ColorMatch
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.SpecialTileVisualSet
+  specialTileType: 4
+  redSprite: {fileID: -9032410827055415870, guid: 14ba7c9b8ec272f4d8e5567c1592a591, type: 3}
+  greenSprite: {fileID: 7287829832156070382, guid: 14ba7c9b8ec272f4d8e5567c1592a591, type: 3}
+  blueSprite: {fileID: -8312783317507480979, guid: 14ba7c9b8ec272f4d8e5567c1592a591, type: 3}
+  yellowSprite: {fileID: 2078407203, guid: 14ba7c9b8ec272f4d8e5567c1592a591, type: 3}
+  purpleSprite: {fileID: -8548199996910019296, guid: 14ba7c9b8ec272f4d8e5567c1592a591, type: 3}

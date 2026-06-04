@@ -8,13 +8,11 @@ namespace CrystalMind.MatchMancer
         #region Variables
 
         [Header("Destroy Animation")]
-        [SerializeField] private ParticleSystem destroyParticlePrefab;
         [SerializeField, Min(0f)] private float destroyAnimationDuration = 0.1f;
         [SerializeField, Range(0f, 1f)] private float destroyScaleTarget = 0f;
         [SerializeField] private bool destroyFadeEnabled = true;
 
         [Header("Special Spawn Animation")]
-        [SerializeField] private ParticleSystem specialSpawnParticlePrefab;
         [SerializeField, Min(0f)] private float specialSpawnDuration = 0.16f;
         [SerializeField, Min(1f)] private float specialSpawnOvershootScale = 1.15f;
 
@@ -31,6 +29,22 @@ namespace CrystalMind.MatchMancer
         [Header("Curse Debug Visual")]
         [Tooltip("Temporary debug tint multiplied with the tile base color while the tile has a curse.")]
         [SerializeField] private Color curseDebugTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+        [Tooltip("Optional material restored on the tile body when the tile is not cursed. If empty, the original body material is cached at runtime.")]
+        [SerializeField] private Material defaultBodyMaterial;
+        [Tooltip("Optional material applied only to the tile body while cursed. Frame and icon renderers are not modified.")]
+        [SerializeField] private Material curseBodyMaterial;
+
+        [Header("Curse Icon")]
+        [SerializeField] private SpriteRenderer curseIconRenderer;
+        [SerializeField, Min(0f)] private float curseIconIntroDuration = 0.2f;
+        [SerializeField, Min(1f)] private float curseIconIntroStartScale = 1.5f;
+        [SerializeField, Min(0f)] private float curseIconIntroTargetScale = 0.5f;
+        [SerializeField, Min(0f)] private float curseIconIntroDelay;
+
+        [Header("Curse Application VFX")]
+        [SerializeField] private GameObject curseApplicationVfxPrefab;
+        [SerializeField, Min(0f)] private float curseApplicationVfxLifetime = 0.75f;
+        [SerializeField] private Transform curseApplicationVfxParent;
 
         [Header("Enhanced Frame")]
         [Tooltip("Optional overlay/frame shown only while this tile is both special and Enhanced. Curse tint remains on the tile body.")]
@@ -44,8 +58,12 @@ namespace CrystalMind.MatchMancer
         private MaterialPropertyBlock propertyBlock;
         private Color baseColor = Color.white;
         private Vector3 defaultScale = Vector3.one;
+        private Vector3 curseIconDefaultScale = Vector3.one;
+        private Color curseIconDefaultColor = Color.white;
+        private Material cachedDefaultBodyMaterial;
         private Coroutine selectedPulseRoutine;
         private Coroutine specialSpawnRoutine;
+        private Coroutine curseIconIntroRoutine;
 
         // State
         private bool isSelected;
@@ -53,6 +71,7 @@ namespace CrystalMind.MatchMancer
         private bool isEnhancedSpecial;
         private bool isCursed;
         private bool supportsMaterialColor;
+        private CurseEffectData currentCurseEffect;
 
         #endregion
 
@@ -81,11 +100,14 @@ namespace CrystalMind.MatchMancer
             isSpecial = false;
             isEnhancedSpecial = false;
             isCursed = false;
+            currentCurseEffect = null;
             SetEnhancedFrameVisible(false);
+            SetCurseIconVisible(false);
 
             if (targetRenderer != null)
             {
                 targetRenderer.SetPropertyBlock(null);
+                RestoreDefaultBodyMaterial();
                 targetRenderer.color = baseColor;
             }
 
@@ -157,13 +179,33 @@ namespace CrystalMind.MatchMancer
 
         public void SetCurseState(bool cursed)
         {
-            if (isCursed == cursed)
+            SetCurseState(cursed ? currentCurseEffect : null, false);
+        }
+
+        public void SetCurseState(CurseEffectData curseEffect)
+        {
+            SetCurseState(curseEffect, true);
+        }
+
+        public void SetCurseState(CurseEffectData curseEffect, bool playIntroAnimation)
+        {
+            bool cursed = curseEffect != null;
+            bool curseChanged = currentCurseEffect != curseEffect;
+
+            if (isCursed == cursed && !curseChanged)
             {
                 return;
             }
 
             isCursed = cursed;
+            currentCurseEffect = curseEffect;
             ApplyCurrentRendererColor();
+            ApplyCurseIcon(curseEffect, playIntroAnimation && cursed && (!IsCurseIconVisible() || curseChanged));
+
+            if (cursed && (!IsCurseIconVisible() || curseChanged))
+            {
+                SpawnCurseApplicationVfx();
+            }
         }
 
         public IEnumerator PlayDestroyAnimation()
@@ -174,7 +216,6 @@ namespace CrystalMind.MatchMancer
             isEnhancedSpecial = false;
             SetEnhancedFrameVisible(false);
             ClearSpecialGlow();
-            SpawnParticle(destroyParticlePrefab);
 
             float safeDuration = Mathf.Max(0f, destroyAnimationDuration);
             Vector3 startScale = transform.localScale;
@@ -277,6 +318,14 @@ namespace CrystalMind.MatchMancer
             if (targetRenderer != null)
             {
                 baseColor = targetRenderer.color;
+                CacheDefaultBodyMaterialIfNeeded();
+            }
+
+            if (curseIconRenderer != null)
+            {
+                curseIconDefaultScale = curseIconRenderer.transform.localScale;
+                curseIconDefaultColor = curseIconRenderer.color;
+                SetCurseIconVisible(false);
             }
         }
 
@@ -293,6 +342,12 @@ namespace CrystalMind.MatchMancer
                 StopCoroutine(specialSpawnRoutine);
                 specialSpawnRoutine = null;
             }
+
+            if (curseIconIntroRoutine != null)
+            {
+                StopCoroutine(curseIconIntroRoutine);
+                curseIconIntroRoutine = null;
+            }
         }
 
         private IEnumerator SelectedPulseRoutine()
@@ -308,7 +363,6 @@ namespace CrystalMind.MatchMancer
 
         private void PlaySpecialSpawnAnimation()
         {
-            SpawnParticle(specialSpawnParticlePrefab);
             transform.localScale = defaultScale * 0.2f;
 
             if (specialSpawnRoutine != null)
@@ -395,7 +449,202 @@ namespace CrystalMind.MatchMancer
             }
 
             targetRenderer.SetPropertyBlock(null);
+            ApplyBodyMaterial();
             targetRenderer.color = GetDisplayBaseColor();
+        }
+
+        private void ApplyBodyMaterial()
+        {
+            if (targetRenderer == null)
+            {
+                return;
+            }
+
+            CacheDefaultBodyMaterialIfNeeded();
+            Material targetMaterial = isCursed && curseBodyMaterial != null
+                ? curseBodyMaterial
+                : GetDefaultBodyMaterial();
+
+            if (targetMaterial != null && targetRenderer.sharedMaterial != targetMaterial)
+            {
+                targetRenderer.sharedMaterial = targetMaterial;
+            }
+
+            supportsMaterialColor = targetRenderer.sharedMaterial != null &&
+                targetRenderer.sharedMaterial.HasProperty(ColorPropertyId);
+        }
+
+        private void RestoreDefaultBodyMaterial()
+        {
+            if (targetRenderer == null)
+            {
+                return;
+            }
+
+            Material targetMaterial = GetDefaultBodyMaterial();
+
+            if (targetMaterial != null && targetRenderer.sharedMaterial != targetMaterial)
+            {
+                targetRenderer.sharedMaterial = targetMaterial;
+            }
+
+            supportsMaterialColor = targetRenderer.sharedMaterial != null &&
+                targetRenderer.sharedMaterial.HasProperty(ColorPropertyId);
+        }
+
+        private void CacheDefaultBodyMaterialIfNeeded()
+        {
+            if (targetRenderer == null || cachedDefaultBodyMaterial != null)
+            {
+                return;
+            }
+
+            cachedDefaultBodyMaterial = defaultBodyMaterial != null
+                ? defaultBodyMaterial
+                : targetRenderer.sharedMaterial;
+        }
+
+        private Material GetDefaultBodyMaterial()
+        {
+            return defaultBodyMaterial != null ? defaultBodyMaterial : cachedDefaultBodyMaterial;
+        }
+
+        private void ApplyCurseIcon(CurseEffectData curseEffect, bool playIntroAnimation)
+        {
+            if (curseIconRenderer == null)
+            {
+                return;
+            }
+
+            if (curseEffect == null)
+            {
+                SetCurseIconVisible(false);
+                return;
+            }
+
+            if (curseEffect.Icon != null)
+            {
+                curseIconRenderer.sprite = curseEffect.Icon;
+            }
+
+            SetCurseIconVisible(true);
+
+            if (playIntroAnimation)
+            {
+                PlayCurseIconIntro();
+                return;
+            }
+
+            curseIconRenderer.transform.localScale = GetCurseIconTargetScale();
+            curseIconRenderer.color = curseIconDefaultColor;
+        }
+
+        private void SetCurseIconVisible(bool visible)
+        {
+            if (curseIconRenderer == null)
+            {
+                return;
+            }
+
+            curseIconRenderer.enabled = visible;
+
+            if (!visible)
+            {
+                if (curseIconIntroRoutine != null)
+                {
+                    StopCoroutine(curseIconIntroRoutine);
+                    curseIconIntroRoutine = null;
+                }
+
+                curseIconRenderer.transform.localScale = curseIconDefaultScale;
+                curseIconRenderer.color = new Color(curseIconDefaultColor.r, curseIconDefaultColor.g, curseIconDefaultColor.b, 0f);
+            }
+        }
+
+        private bool IsCurseIconVisible()
+        {
+            return curseIconRenderer != null && curseIconRenderer.enabled;
+        }
+
+        private void PlayCurseIconIntro()
+        {
+            if (curseIconRenderer == null)
+            {
+                return;
+            }
+
+            if (curseIconIntroRoutine != null)
+            {
+                StopCoroutine(curseIconIntroRoutine);
+            }
+
+            curseIconIntroRoutine = StartCoroutine(CurseIconIntroRoutine());
+        }
+
+        private IEnumerator CurseIconIntroRoutine()
+        {
+            float safeDelay = Mathf.Max(0f, curseIconIntroDelay);
+
+            while (safeDelay > 0f)
+            {
+                safeDelay -= Time.deltaTime;
+                yield return null;
+            }
+
+            float safeDuration = Mathf.Max(0f, curseIconIntroDuration);
+            Color startColor = new Color(curseIconDefaultColor.r, curseIconDefaultColor.g, curseIconDefaultColor.b, 0f);
+            Color endColor = new Color(curseIconDefaultColor.r, curseIconDefaultColor.g, curseIconDefaultColor.b, curseIconDefaultColor.a);
+            Vector3 startScale = curseIconDefaultScale * Mathf.Max(0f, curseIconIntroStartScale);
+            Vector3 targetScale = GetCurseIconTargetScale();
+            curseIconRenderer.transform.localScale = startScale;
+            curseIconRenderer.color = startColor;
+
+            if (safeDuration <= 0f)
+            {
+                curseIconRenderer.transform.localScale = targetScale;
+                curseIconRenderer.color = endColor;
+                curseIconIntroRoutine = null;
+                yield break;
+            }
+
+            float elapsed = 0f;
+
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.deltaTime;
+                float time = Mathf.Clamp01(elapsed / safeDuration);
+                curseIconRenderer.transform.localScale = Vector3.Lerp(startScale, targetScale, time);
+                curseIconRenderer.color = Color.Lerp(startColor, endColor, time);
+                yield return null;
+            }
+
+            curseIconRenderer.transform.localScale = targetScale;
+            curseIconRenderer.color = endColor;
+            curseIconIntroRoutine = null;
+        }
+
+        private Vector3 GetCurseIconTargetScale()
+        {
+            return curseIconDefaultScale * Mathf.Max(0f, curseIconIntroTargetScale);
+        }
+
+        private void SpawnCurseApplicationVfx()
+        {
+            if (curseApplicationVfxPrefab == null)
+            {
+                return;
+            }
+
+            GameObject effectInstance = Instantiate(
+                curseApplicationVfxPrefab,
+                transform.position,
+                Quaternion.identity,
+                curseApplicationVfxParent);
+
+            if (curseApplicationVfxLifetime > 0f)
+            {
+                Destroy(effectInstance, curseApplicationVfxLifetime);
+            }
         }
 
         private void UpdateEnhancedFrame()
@@ -433,20 +682,6 @@ namespace CrystalMind.MatchMancer
             {
                 targetRenderer.color = fadeColor;
             }
-        }
-
-        private void SpawnParticle(ParticleSystem particlePrefab)
-        {
-            if (particlePrefab == null)
-            {
-                return;
-            }
-
-            ParticleSystem particleInstance = Instantiate(particlePrefab, transform.position, Quaternion.identity);
-            particleInstance.Play();
-
-            float lifetime = particleInstance.main.duration + particleInstance.main.startLifetime.constantMax;
-            Destroy(particleInstance.gameObject, lifetime);
         }
 
         private float EvaluateIntroScale(float time, float startScale, float overshootScale, float endScale)

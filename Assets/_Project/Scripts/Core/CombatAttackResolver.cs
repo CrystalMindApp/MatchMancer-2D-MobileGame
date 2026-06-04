@@ -14,7 +14,7 @@ namespace CrystalMind.MatchMancer
             float critChance,
             float critMultiplier)
         {
-            float finalHitChance = Mathf.Clamp01(baseHitChance - hitChancePenalty);
+            float finalHitChance = GetFinalHitChance(baseHitChance, hitChancePenalty);
 
             if (Random.value > finalHitChance)
             {
@@ -31,6 +31,11 @@ namespace CrystalMind.MatchMancer
 
             int finalDamage = Mathf.Max(0, Mathf.RoundToInt(Mathf.Max(0, baseDamage) * finalMultiplier));
             return AttackResult.Hit(finalDamage, isCritical);
+        }
+
+        public static float GetFinalHitChance(float baseHitChance, float hitChancePenalty)
+        {
+            return Mathf.Clamp01(baseHitChance - hitChancePenalty);
         }
 
         #endregion

@@ -19,6 +19,10 @@ namespace CrystalMind.MatchMancer
         [SerializeField] private Sprite yellowTileSprite;
         [SerializeField] private Sprite purpleTileSprite;
 
+        [Header("Special Visual Sets")]
+        [Tooltip("Optional data-driven special sprite mappings. These are checked before the legacy per-type sprite fields below.")]
+        [SerializeField] private SpecialTileVisualSet[] specialTileVisualSets;
+
         [Header("Line Horizontal Sprites")]
         [SerializeField] private Sprite redLineHorizontalSprite;
         [SerializeField] private Sprite greenLineHorizontalSprite;
@@ -164,7 +168,7 @@ namespace CrystalMind.MatchMancer
         {
             curseEffect = newCurseEffect;
             UpdateName();
-            visualController?.SetCurseState(IsCursed);
+            visualController?.SetCurseState(curseEffect);
         }
 
         public void ClearCurse()
@@ -294,6 +298,13 @@ namespace CrystalMind.MatchMancer
 
         private Sprite GetMappedSprite(TileType tileType, SpecialTileType tileSpecialType)
         {
+            Sprite mappedSprite = GetSpecialVisualSetSprite(tileType, tileSpecialType);
+
+            if (mappedSprite != null)
+            {
+                return mappedSprite;
+            }
+
             switch (tileSpecialType)
             {
                 case SpecialTileType.LineHorizontal:
@@ -311,6 +322,26 @@ namespace CrystalMind.MatchMancer
                 default:
                     return GetNormalTileSprite(tileType);
             }
+        }
+
+        private Sprite GetSpecialVisualSetSprite(TileType tileType, SpecialTileType tileSpecialType)
+        {
+            if (tileSpecialType == SpecialTileType.None || specialTileVisualSets == null)
+            {
+                return null;
+            }
+
+            foreach (SpecialTileVisualSet visualSet in specialTileVisualSets)
+            {
+                if (visualSet == null || !visualSet.IsValid || visualSet.SpecialTileType != tileSpecialType)
+                {
+                    continue;
+                }
+
+                return visualSet.GetSprite(tileType);
+            }
+
+            return null;
         }
 
         private Sprite GetNormalTileSprite(TileType tileType)

@@ -22,6 +22,7 @@ namespace CrystalMind.MatchMancer
         [SerializeField, Min(0f)] private float nextEnemyRoundDelay = 0.75f;
         [SerializeField, Min(0f)] private float enemyTurnStartDelay = 0.4f;
         [SerializeField, Min(0f)] private float enemyAbilityDelay = 0.5f;
+        [SerializeField, Min(0f)] private float enemyAbilityImpactDelay = 0.2f;
         [SerializeField, Min(0f)] private float enemyTurnEndDelay = 0.4f;
         [SerializeField, Min(0f)] private float attackImpactDelay = 0.5f;
         [SerializeField, Min(0f)] private float postImpactHoldDelay = 0.5f;
@@ -123,12 +124,20 @@ namespace CrystalMind.MatchMancer
         public string EnemySpeedText => (enemyActor != null ? enemyActor.BaseSpeed : 0).ToString();
         public string HeroAttackStatText => $"{(playerActor != null ? playerActor.BaseDamagePerTile : 0)}+0";
         public string HeroHealStatText => $"{(playerActor != null ? playerActor.GreenHealPerTile : 0)}+{currentHeroHealAddition}";
+        public float PlayerFinalHitChance => playerActor != null
+            ? CombatAttackResolver.GetFinalHitChance(playerActor.BaseHitChance, playerActor.CurrentHitChancePenalty)
+            : 0f;
+        public string HeroHitChanceText => FormatPercent(PlayerFinalHitChance);
         public string HeroCritChanceText => FormatPercent(pendingCritChance);
         public string HeroCritMultiplierText => $"{(playerActor != null ? playerActor.RedCritDamageMultiplier : 1f):0.##}x";
         public string HeroActiveSkillText => playerActor != null && playerActor.ActiveSkill != null ? playerActor.ActiveSkill.SkillDescription : string.Empty;
         public string HeroPassiveSkillText => playerActor != null && playerActor.PassiveSkill != null ? playerActor.PassiveSkill.PassiveDescription : string.Empty;
         public string EnemyAttackStatText => $"{(enemyActor != null ? enemyActor.BaseAttackDamage : 0)}+{(enemyActor != null ? enemyActor.CurrentAttackDamageAddition : 0)}";
         public string EnemyHealStatText => $"{(enemyActor != null ? enemyActor.EnemySelfHealAmount : 0)}+0";
+        public float EnemyFinalHitChance => enemyActor != null
+            ? CombatAttackResolver.GetFinalHitChance(enemyActor.BaseHitChance, enemyActor.CurrentHitChancePenalty)
+            : 0f;
+        public string EnemyHitChanceText => FormatPercent(EnemyFinalHitChance);
         public string EnemyCritChanceText => FormatPercent(enemyActor != null ? enemyActor.EnemyCritChance : 0f);
         public string EnemyCritMultiplierText => $"{(enemyActor != null ? enemyActor.EnemyCritMultiplier : 1f):0.##}x";
         public string EnemyDisruptChanceText => FormatPercent(enemyActor != null ? enemyActor.EnemySpecialDisruptChance : 0f);
@@ -604,15 +613,12 @@ namespace CrystalMind.MatchMancer
                 yield return new WaitForSeconds(enemyAbilityDelay);
             }
 
-            if (enemyWasReadyAtTurnStart && TryEnemyDisruption())
+            if (enemyWasReadyAtTurnStart)
             {
-                yield return new WaitForSeconds(enemyAbilityDelay);
+                yield return StartCoroutine(EnemyDisruptionRoutine());
             }
 
-            if (TryEnemyTileCurse())
-            {
-                yield return new WaitForSeconds(enemyAbilityDelay);
-            }
+            yield return StartCoroutine(EnemyTileCurseRoutine());
 
             if (enemyWasReadyAtTurnStart)
             {
@@ -1069,35 +1075,38 @@ namespace CrystalMind.MatchMancer
             return true;
         }
 
-        private bool TryEnemyDisruption()
+        private IEnumerator EnemyDisruptionRoutine()
         {
-            if (boardManager == null || Random.value > enemyActor.EnemySpecialDisruptChance)
+            if (boardManager == null || enemyActor == null || !boardManager.HasSpecialTile() || Random.value > enemyActor.EnemySpecialDisruptChance)
             {
-                return false;
+                yield break;
             }
 
             BoardEffectData disruptEffect = enemyActor != null && enemyActor.CombatProfile != null
                 ? enemyActor.CombatProfile.DisruptBoardEffect
                 : null;
+            enemyActor.PlaySkillVisual();
+            yield return WaitForEnemyAbilityImpact();
+
             bool disrupted = disruptEffect != null
                 ? boardManager.TryExecuteImmediateBoardEffect(disruptEffect)
                 : boardManager.TryRemoveRandomSpecialTile();
-            if (disrupted)
-            {
-                enemyActor.PlaySkillVisual();
-            }
 
             LogEnemy(disrupted
                 ? "Enemy disruption: removed one special tile."
                 : "Enemy disruption: no special tile available.");
-            return disrupted;
+
+            if (disrupted)
+            {
+                yield return new WaitForSeconds(enemyAbilityDelay);
+            }
         }
 
-        private bool TryEnemyTileCurse()
+        private IEnumerator EnemyTileCurseRoutine()
         {
-            if (enemyActor == null || boardManager == null)
+            if (enemyActor == null || boardManager == null || !boardManager.HasUncursedTile())
             {
-                return false;
+                yield break;
             }
 
             CurseEffectData curseEffect = enemyActor.TileCurseEffect;
@@ -1105,20 +1114,30 @@ namespace CrystalMind.MatchMancer
 
             if (curseEffect == null || curseCount <= 0 || Random.value > enemyActor.TileCurseApplyChance)
             {
-                return false;
+                yield break;
             }
+
+            enemyActor.PlaySkillVisual();
+            yield return WaitForEnemyAbilityImpact();
 
             bool applied = boardManager.TryApplyRandomTileCurse(curseEffect, curseCount);
-
-            if (applied)
-            {
-                enemyActor.PlaySkillVisual();
-            }
 
             LogCurse(applied
                 ? $"Enemy tile curse: applied {curseEffect.CurseName} to up to {curseCount} tile(s)."
                 : "Enemy tile curse: no valid uncursed tile available.");
-            return applied;
+
+            if (applied)
+            {
+                yield return new WaitForSeconds(enemyAbilityDelay);
+            }
+        }
+
+        private IEnumerator WaitForEnemyAbilityImpact()
+        {
+            if (enemyAbilityImpactDelay > 0f)
+            {
+                yield return new WaitForSeconds(enemyAbilityImpactDelay);
+            }
         }
 
         private void TickCurseDurations()

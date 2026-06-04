@@ -17,12 +17,14 @@ public class GameHUD : MonoBehaviour
     [SerializeField] private TMP_Text enemySpeedText;
     [SerializeField] private TMP_Text heroAttackText;
     [SerializeField] private TMP_Text heroHealText;
+    [SerializeField] private TMP_Text heroHitChanceText;
     [SerializeField] private TMP_Text heroCritChanceText;
     [SerializeField] private TMP_Text heroCritMultiplierText;
     [SerializeField] private TMP_Text heroActiveSkillText;
     [SerializeField] private TMP_Text heroPassiveSkillText;
     [SerializeField] private TMP_Text enemyAttackText;
     [SerializeField] private TMP_Text enemyHealText;
+    [SerializeField] private TMP_Text enemyHitChanceText;
     [SerializeField] private TMP_Text enemyCritChanceText;
     [SerializeField] private TMP_Text enemyCritMultiplierText;
     [SerializeField] private TMP_Text enemyDisruptChanceText;
@@ -299,12 +301,14 @@ public class GameHUD : MonoBehaviour
     {
         SetText(heroAttackText, gameManager.HeroAttackStatText);
         SetText(heroHealText, gameManager.HeroHealStatText);
+        SetText(heroHitChanceText, gameManager.HeroHitChanceText);
         SetText(heroCritChanceText, gameManager.HeroCritChanceText);
         SetText(heroCritMultiplierText, gameManager.HeroCritMultiplierText);
         SetText(heroActiveSkillText, gameManager.HeroActiveSkillText);
         SetText(heroPassiveSkillText, gameManager.HeroPassiveSkillText);
         SetText(enemyAttackText, gameManager.EnemyAttackStatText);
         SetText(enemyHealText, gameManager.EnemyHealStatText);
+        SetText(enemyHitChanceText, gameManager.EnemyHitChanceText);
         SetText(enemyCritChanceText, gameManager.EnemyCritChanceText);
         SetText(enemyCritMultiplierText, gameManager.EnemyCritMultiplierText);
         SetText(enemyDisruptChanceText, gameManager.EnemyDisruptChanceText);

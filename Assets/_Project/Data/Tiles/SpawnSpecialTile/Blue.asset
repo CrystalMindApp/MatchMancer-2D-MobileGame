@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cb29a05fd1a480887b3f7cd1b3a30ff, type: 3}
+  m_Name: Blue
+  m_EditorClassIdentifier: Assembly-CSharp::CrystalMind.MatchMancer.TileColorVfxSet
+  tileType: 1
+  effectPrefab: {fileID: 1214388575461086399, guid: 016784eb5715f7a4e9d8081b1a7162d3, type: 3}

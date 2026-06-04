@@ -10,6 +10,8 @@ namespace CrystalMind.MatchMancer
         [Header("Identity")]
         [SerializeField] private string curseName = "Curse";
         [SerializeField] private CurseType curseType = CurseType.Poison;
+        [Tooltip("Optional tile/HUD icon used by presentation systems. Gameplay does not depend on this.")]
+        [SerializeField] private Sprite icon;
 
         [Header("Shared Settings")]
         [Tooltip("Duration for this curse effect. Poison uses player turns. Blind uses attack attempts.")]
@@ -29,6 +31,7 @@ namespace CrystalMind.MatchMancer
 
         public string CurseName => string.IsNullOrWhiteSpace(curseName) ? name : curseName;
         public CurseType CurseType => curseType;
+        public Sprite Icon => icon;
         public int DurationTurns => Mathf.Max(1, durationTurns);
         public int PoisonDamagePerTurn => Mathf.Max(0, poisonDamagePerTurn);
         public float BlindHitChancePenalty => Mathf.Clamp01(blindHitChancePenalty);
